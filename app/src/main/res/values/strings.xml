@@ -53,4 +53,26 @@
     <string name="nav_home">Home</string>
     <string name="nav_history">History</string>
     <string name="nav_profile">Profile</string>
+    <!-- Failures. Each one tells the worker what to DO: try again, or
+         call the office. A raw server string never reaches the screen. -->
+    <string name="error_missing_fields">Fill in your email and password.</string>
+    <string name="error_missing_fields_tl">Punan ang email at password.</string>
+    <string name="error_wrong_credentials">That email and password do not match.</string>
+    <string name="error_wrong_credentials_tl">Hindi tugma ang email at password.</string>
+    <string name="error_account_inactive">This account is turned off. Call the office.</string>
+    <string name="error_account_inactive_tl">Naka-off ang account na ito. Tawagan ang opisina.</string>
+    <string name="error_not_a_worker">This is not a worker account.</string>
+    <string name="error_not_a_worker_tl">Hindi ito worker account.</string>
+    <string name="error_captcha">Sign-in is blocked on this phone. Call the office.</string>
+    <string name="error_captcha_tl">Naka-block ang pag-log in sa telepono na ito. Tawagan ang opisina.</string>
+    <string name="error_no_connection">No signal right now. Try again in a moment.</string>
+    <string name="error_no_connection_tl">Walang signal ngayon. Subukan ulit mamaya.</string>
+    <string name="error_server">Something went wrong. Try again.</string>
+    <string name="error_server_tl">May nasira. Subukan ulit.</string>
+
+    <!-- Shared actions -->
+    <string name="action_retry">TRY AGAIN</string>
+    <string name="action_retry_tl">Subukan ulit</string>
+    <string name="action_log_out">LOG OUT</string>
+    <string name="action_log_out_tl">Mag-log out</string>
 </resources>

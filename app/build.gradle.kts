@@ -2,6 +2,9 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.hilt)
 }
 
 android {
@@ -21,6 +24,23 @@ android {
         versionName = "0.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // The Supabase project the existing web app already talks to.
+        //
+        // The anon key is PUBLIC by design -- js/supabase-config.js ships the
+        // exact same string to every browser. It grants nothing on its own:
+        // every attendance table is behind RLS and every write goes through a
+        // security-definer RPC. Do NOT ever put the service_role key here.
+        buildConfigField(
+            "String",
+            "SUPABASE_URL",
+            "\"https://hqbgduyonlbbsvjuapre.supabase.co\""
+        )
+        buildConfigField(
+            "String",
+            "SUPABASE_ANON_KEY",
+            "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhxYmdkdXlvbmxiYnN2anVhcHJlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2Mjc3NDEsImV4cCI6MjA5NjIwMzc0MX0.sDKSroNIm-1Lip6ueq2lN1VTsvO1g4mT7Rf_WZ5AxWo\""
+        )
 
         // NOTE: no locale filtering here on purpose. The app is Filipino
         // facing but NOT localized in the Android sense — every label shows
@@ -57,6 +77,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     packaging {
@@ -83,9 +104,29 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
 
+    implementation(libs.androidx.material.icons)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+
+    implementation(libs.hilt.android)
+    implementation(libs.hilt.viewmodel.compose)
+    ksp(libs.hilt.compiler)
+
+    // Supabase. auth + postgrest are what B2 needs; storage is declared now
+    // because B3's photo upload uses the same client and adding a module
+    // later would change the resolved ktor version underneath it.
+    implementation(platform(libs.supabase.bom))
+    implementation(libs.supabase.auth)
+    implementation(libs.supabase.postgrest)
+    implementation(libs.supabase.storage)
+    implementation(libs.ktor.client.okhttp)
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.multiplatform.settings)
+    implementation(libs.androidx.security.crypto)
+
     debugImplementation(libs.androidx.ui.tooling)
 
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 }
