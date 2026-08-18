@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  BILINGUAL, NOT LOCALIZED.
+
+  Every label shows English and Tagalog TOGETHER, always, on the same
+  screen. This is a deliberate design decision from the Claude Design
+  source: the workforce reads both, and a language toggle would mean a
+  worker can end up on a screen they cannot read.
+
+  So: do NOT move the _tl strings into values-fil/. They are not a
+  translation, they are part of the label. See BilingualText().
+-->
+<resources>
+    <string name="app_name">DACs Attendance</string>
+
+    <!-- Login -->
+    <string name="login_title">Attendance</string>
+    <string name="login_subtitle">DAC\'s Building Design Services</string>
+    <string name="label_email">Email</string>
+    <string name="label_email_tl">Ang email na binigay ng admin</string>
+    <string name="label_password">Password</string>
+    <string name="label_password_tl">Ang password mo</string>
+    <string name="action_sign_in">SIGN IN</string>
+    <string name="action_sign_in_tl">Mag-log in</string>
+    <string name="login_no_account">Walang account? Ang admin lang ang makakagawa nito. Tawagan ang opisina.</string>
+
+    <!-- Terms -->
+    <string name="terms_title">Terms &amp; Conditions</string>
+    <string name="terms_title_tl">Basahin bago magpatuloy</string>
+    <string name="terms_once">You only need to do this once, on your first log in.</string>
+    <string name="terms_agree">I have read and I agree.</string>
+    <string name="terms_agree_tl">Nabasa at sumasang-ayon ako.</string>
+    <string name="action_accept">ACCEPT &amp; CONTINUE</string>
+    <string name="action_accept_tl">Tanggapin at magpatuloy</string>
+
+    <!-- Dashboard -->
+    <string name="greeting_morning">Magandang umaga,</string>
+    <string name="action_time_in">TIME IN</string>
+    <string name="action_time_in_hint">Pipili ka muna ng project</string>
+    <string name="action_time_out">TIME OUT</string>
+    <string name="action_time_out_hint">Pipili ulit ng project</string>
+    <string name="step_time_in">Time In</string>
+    <string name="step_time_in_tl">Gawin ngayon</string>
+    <string name="step_working">Working</string>
+    <string name="step_working_tl">Hindi pa</string>
+    <string name="step_time_out">Time Out</string>
+    <string name="step_time_out_tl">Naka-lock</string>
+    <string name="no_time_yet">Wala pang naitalang oras ngayon</string>
+    <string name="hours_so_far">HOURS SO FAR</string>
+    <string name="hours_so_far_tl">Kabuuang oras hanggang ngayon</string>
+
+    <!-- Nav -->
+    <string name="nav_home">Home</string>
+    <string name="nav_history">History</string>
+    <string name="nav_profile">Profile</string>
+</resources>
