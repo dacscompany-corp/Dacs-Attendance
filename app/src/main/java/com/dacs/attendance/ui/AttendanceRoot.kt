@@ -9,6 +9,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -17,12 +22,15 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dacs.attendance.R
 import com.dacs.attendance.domain.LoginFailure
+import com.dacs.attendance.domain.TimeDirection
 import com.dacs.attendance.domain.WorkerProfile
 import com.dacs.attendance.ui.components.BilingualText
 import com.dacs.attendance.ui.components.FailureNotice
 import com.dacs.attendance.ui.components.PrimaryActionButton
+import com.dacs.attendance.ui.dashboard.DashboardScreen
 import com.dacs.attendance.ui.login.LoginScreen
 import com.dacs.attendance.ui.terms.TermsScreen
+import com.dacs.attendance.ui.timeflow.TimeFlowScreen
 import com.dacs.attendance.ui.theme.Dimens
 import com.dacs.attendance.ui.theme.Green
 import com.dacs.attendance.ui.theme.TextMuted
@@ -63,9 +71,8 @@ fun AttendanceRoot(
             modifier = modifier
         )
 
-        is AppState.SignedIn -> SignedInPlaceholder(
+        is AppState.SignedIn -> SignedInArea(
             worker = current.worker,
-            onSignOut = viewModel::onSignOut,
             modifier = modifier
         )
     }
@@ -121,41 +128,42 @@ private fun GateUnavailableScreen(
 }
 
 /**
- * B2 stops here. B3 replaces this with DashboardScreen and the four-step
- * Time In / Time Out flow.
+ * The signed-in half of the app: the dashboard, and the four-step flow
+ * launched from it.
+ *
+ * Held as state rather than a nav graph for the same reason the gate is:
+ * the flow is modal. A worker in the middle of recording a Time In has
+ * one way forward and one way back, and there is no third place to
+ * navigate to. B4's history and profile tabs are genuine navigation and
+ * will bring a NavHost with them.
  */
 @Composable
-private fun SignedInPlaceholder(
+private fun SignedInArea(
     worker: WorkerProfile,
-    onSignOut: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(Dimens.ScreenPadding),
-        verticalArrangement = Arrangement.spacedBy(Dimens.GapMedium, Alignment.CenterVertically),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = stringResource(R.string.greeting_morning),
-            style = MaterialTheme.typography.bodyLarge,
-            color = TextMuted
-        )
-        Text(
-            text = worker.firstName,
-            style = MaterialTheme.typography.headlineMedium
-        )
-        BilingualText(
-            english = "${worker.position ?: "--"}  ·  ${worker.workerIdLabel}",
-            tagalog = worker.email.orEmpty(),
-            horizontalAlignment = Alignment.CenterHorizontally
-        )
-        PrimaryActionButton(
-            english = stringResource(R.string.action_log_out),
-            tagalog = stringResource(R.string.action_log_out_tl),
-            onClick = onSignOut,
-            container = TextMuted
+    var flow by rememberSaveable { mutableStateOf<TimeDirection?>(null) }
+    // Bumped after a submission so the dashboard re-reads today's record
+    // instead of showing the state from before the worker timed in.
+    var reloadKey by rememberSaveable { mutableStateOf(0) }
+
+    when (val direction = flow) {
+        null -> key(reloadKey) {
+            DashboardScreen(
+                worker = worker,
+                onStartFlow = { flow = it },
+                modifier = modifier
+            )
+        }
+
+        else -> TimeFlowScreen(
+            direction = direction,
+            onFinished = {
+                flow = null
+                reloadKey++
+            },
+            onCancelled = { flow = null },
+            modifier = modifier
         )
     }
 }

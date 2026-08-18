@@ -117,6 +117,18 @@ dependencies {
     implementation(libs.androidx.material.icons)
     implementation(libs.androidx.lifecycle.runtime.compose)
 
+    // CameraX. The photo is taken IN the app -- there is no gallery
+    // picker anywhere, deliberately (see AndroidManifest): a photo that
+    // must be taken now, at the site, is the cheapest anti-spoofing
+    // measure available.
+    implementation(libs.androidx.camera.core)
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.view)
+    // Decodes the captured file honouring its EXIF rotation. Doing it by
+    // hand gets a sideways selfie on half the phones in the field.
+    implementation(libs.coil.compose)
+
     implementation(libs.hilt.android)
     implementation(libs.hilt.viewmodel.compose)
     ksp(libs.hilt.compiler)

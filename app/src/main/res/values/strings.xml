@@ -75,4 +75,58 @@
     <string name="action_retry_tl">Subukan ulit</string>
     <string name="action_log_out">LOG OUT</string>
     <string name="action_log_out_tl">Mag-log out</string>
+    <!-- Dashboard, B3 -->
+    <string name="step_done_tl">Tapos na</string>
+    <string name="step_working_now_tl">Ginagawa ngayon</string>
+    <string name="step_time_out_now_tl">Pwede na</string>
+    <string name="timed_in_at">Timed in at %1$s</string>
+    <string name="hours_total">TOTAL HOURS</string>
+    <string name="day_complete">Tapos na ang araw mo. Salamat!</string>
+
+    <!-- The four-step flow -->
+    <string name="flow_pick_project">Select project</string>
+    <string name="flow_pick_project_tl">Piliin ang project</string>
+    <string name="flow_no_projects">Walang project na naka-lista. Tawagan ang opisina.</string>
+    <string name="flow_check_photo">Check your photo</string>
+    <string name="flow_check_photo_tl">Tingnan ang litrato</string>
+    <string name="flow_describe">Anything to add?</string>
+    <string name="flow_describe_tl">May idadagdag ka ba?</string>
+    <string name="flow_describe_hint">Hal. Gate 2, may delivery</string>
+    <string name="flow_describe_optional">Optional. Pwedeng iwan na blangko.</string>
+    <string name="flow_done_in">Time In recorded</string>
+    <string name="flow_done_out">Time Out recorded</string>
+    <string name="camera_permission_needed">Kailangan ng camera para sa litrato. Payagan ito sa Settings.</string>
+
+    <string name="action_continue">CONTINUE</string>
+    <string name="action_continue_tl">Magpatuloy</string>
+    <string name="action_take_photo">TAKE PHOTO</string>
+    <string name="action_take_photo_tl">Kumuha ng litrato</string>
+    <string name="action_use_photo">USE THIS PHOTO</string>
+    <string name="action_use_photo_tl">Gamitin ito</string>
+    <string name="action_retake">RETAKE / Ulitin</string>
+    <string name="action_submit_in">SUBMIT TIME IN</string>
+    <string name="action_submit_out">SUBMIT TIME OUT</string>
+    <string name="action_submit_tl">Ipasa</string>
+    <string name="action_done">DONE</string>
+    <string name="action_done_tl">Tapos na</string>
+
+    <!-- Why a Time In / Time Out was refused. Each says what to DO. -->
+    <string name="att_already_timed_in">You already timed in today.</string>
+    <string name="att_already_timed_in_tl">Naka-Time In ka na ngayong araw.</string>
+    <string name="att_not_timed_in">You have not timed in today yet.</string>
+    <string name="att_not_timed_in_tl">Hindi ka pa naka-Time In ngayong araw.</string>
+    <string name="att_already_complete">Today is already finished.</string>
+    <string name="att_already_complete_tl">Tapos na ang record mo ngayong araw.</string>
+    <string name="att_timeout_before_timein">Your phone clock looks wrong. Tell the office.</string>
+    <string name="att_timeout_before_timein_tl">Mali ang oras ng telepono mo. Sabihin sa opisina.</string>
+    <string name="att_clock_wrong">Your phone clock is ahead. Fix the time, then try again.</string>
+    <string name="att_clock_wrong_tl">Mauna ang oras ng telepono mo. Ayusin muna ang oras.</string>
+    <string name="att_shift_too_long">This shift is too long to record. Tell the office.</string>
+    <string name="att_shift_too_long_tl">Masyadong mahaba ang shift na ito. Sabihin sa opisina.</string>
+    <string name="att_project_unavailable">That project is no longer available. Pick another.</string>
+    <string name="att_project_unavailable_tl">Wala na ang project na iyon. Pumili ng iba.</string>
+    <string name="att_no_owner">Your account is not linked to a company yet. Call the office.</string>
+    <string name="att_no_owner_tl">Hindi pa naka-link ang account mo. Tawagan ang opisina.</string>
+    <string name="att_session_expired">Please log in again.</string>
+    <string name="att_session_expired_tl">Mag-log in ulit.</string>
 </resources>
