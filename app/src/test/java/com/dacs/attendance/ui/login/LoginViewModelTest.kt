@@ -10,6 +10,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -38,15 +39,28 @@ class LoginViewModelTest {
             private set
         var lastEmail: String? = null
             private set
+        var lastCaptchaToken: String? = null
+            private set
 
-        override suspend fun signIn(email: String, password: String): Result<WorkerProfile> {
+        override suspend fun signIn(
+            email: String,
+            password: String,
+            captchaToken: String?
+        ): Result<WorkerProfile> {
             calls++
             lastEmail = email
+            lastCaptchaToken = captchaToken
             return result
         }
 
         override suspend fun signOut() = Unit
         override suspend fun currentWorker(): WorkerProfile? = result.getOrNull()
+    }
+
+    private fun signIn(vm: LoginViewModel, password: String = "secret123") {
+        vm.onEmailChange("juan@dacsbuilding.com")
+        vm.onPasswordChange(password)
+        vm.onSubmit()
     }
 
     @Test
@@ -59,7 +73,51 @@ class LoginViewModelTest {
         advanceUntilIdle()
 
         assertEquals(0, auth.calls)
+        assertFalse(vm.uiState.value.awaitingCaptcha)
         assertEquals(LoginFailure.MissingFields, vm.uiState.value.failure)
+    }
+
+    @Test
+    fun `a filled form asks for a captcha before touching the network`() = runTest {
+        // This project enforces Turnstile on auth, so a password grant with
+        // no token is refused outright. Sending it anyway would burn a
+        // round trip to be told what we already know.
+        val auth = FakeAuth(Result.success(worker))
+        val vm = LoginViewModel(auth)
+
+        signIn(vm)
+        advanceUntilIdle()
+
+        assertTrue(vm.uiState.value.awaitingCaptcha)
+        assertEquals(0, auth.calls)
+    }
+
+    @Test
+    fun `the captcha token is handed to sign-in`() = runTest {
+        val auth = FakeAuth(Result.success(worker))
+        val vm = LoginViewModel(auth)
+
+        signIn(vm)
+        vm.onCaptchaToken("turnstile-token")
+        advanceUntilIdle()
+
+        assertEquals("turnstile-token", auth.lastCaptchaToken)
+        assertFalse(vm.uiState.value.awaitingCaptcha)
+    }
+
+    @Test
+    fun `a captcha the worker could not solve never reaches the network`() = runTest {
+        val auth = FakeAuth(Result.success(worker))
+        val vm = LoginViewModel(auth)
+
+        signIn(vm)
+        vm.onCaptchaFailed()
+        advanceUntilIdle()
+
+        assertEquals(0, auth.calls)
+        assertFalse(vm.uiState.value.awaitingCaptcha)
+        assertFalse(vm.uiState.value.submitting)
+        assertEquals(LoginFailure.CaptchaRequired, vm.uiState.value.failure)
     }
 
     @Test
@@ -72,6 +130,7 @@ class LoginViewModelTest {
         vm.onEmailChange("  juan@dacsbuilding.com ")
         vm.onPasswordChange("secret123")
         vm.onSubmit()
+        vm.onCaptchaToken("turnstile-token")
         advanceUntilIdle()
 
         assertEquals("juan@dacsbuilding.com", auth.lastEmail)
@@ -82,13 +141,12 @@ class LoginViewModelTest {
         val auth = FakeAuth(Result.failure(LoginRejected(LoginFailure.WrongCredentials)))
         val vm = LoginViewModel(auth)
 
-        vm.onEmailChange("juan@dacsbuilding.com")
-        vm.onPasswordChange("wrong")
-        vm.onSubmit()
+        signIn(vm, password = "wrong")
+        vm.onCaptchaToken("turnstile-token")
         advanceUntilIdle()
 
         assertEquals(LoginFailure.WrongCredentials, vm.uiState.value.failure)
-        assertTrue(!vm.uiState.value.submitting)
+        assertFalse(vm.uiState.value.submitting)
     }
 
     @Test
@@ -96,9 +154,8 @@ class LoginViewModelTest {
         val auth = FakeAuth(Result.failure(LoginRejected(LoginFailure.AccountInactive)))
         val vm = LoginViewModel(auth)
 
-        vm.onEmailChange("juan@dacsbuilding.com")
-        vm.onPasswordChange("secret123")
-        vm.onSubmit()
+        signIn(vm)
+        vm.onCaptchaToken("turnstile-token")
         advanceUntilIdle()
 
         assertEquals(LoginFailure.AccountInactive, vm.uiState.value.failure)
@@ -109,9 +166,8 @@ class LoginViewModelTest {
         val auth = FakeAuth(Result.failure(LoginRejected(LoginFailure.WrongCredentials)))
         val vm = LoginViewModel(auth)
 
-        vm.onEmailChange("juan@dacsbuilding.com")
-        vm.onPasswordChange("wrong")
-        vm.onSubmit()
+        signIn(vm, password = "wrong")
+        vm.onCaptchaToken("turnstile-token")
         advanceUntilIdle()
         vm.onPasswordChange("wrong2")
 
@@ -123,9 +179,8 @@ class LoginViewModelTest {
         val auth = FakeAuth(Result.success(worker))
         val vm = LoginViewModel(auth)
 
-        vm.onEmailChange("juan@dacsbuilding.com")
-        vm.onPasswordChange("secret123")
-        vm.onSubmit()
+        signIn(vm)
+        vm.onCaptchaToken("turnstile-token")
         advanceUntilIdle()
 
         assertNull(vm.uiState.value.failure)

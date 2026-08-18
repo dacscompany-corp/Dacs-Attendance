@@ -70,6 +70,8 @@
     <string name="error_server">Something went wrong. Try again.</string>
     <string name="error_server_tl">May nasira. Subukan ulit.</string>
 
+    <string name="captcha_wait">One quick check before sign in. / Sandaling pagsusuri bago mag-log in.</string>
+
     <!-- Shared actions -->
     <string name="action_retry">TRY AGAIN</string>
     <string name="action_retry_tl">Subukan ulit</string>

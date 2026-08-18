@@ -17,11 +17,16 @@ class SupabaseAuthRepository @Inject constructor(
     private val client: SupabaseClient
 ) : AuthRepository {
 
-    override suspend fun signIn(email: String, password: String): Result<WorkerProfile> =
+    override suspend fun signIn(
+        email: String,
+        password: String,
+        captchaToken: String?
+    ): Result<WorkerProfile> =
         runCatchingExceptCancellation {
             client.auth.signInWith(Email) {
                 this.email = email
                 this.password = password
+                this.captchaToken = captchaToken
             }
 
             val worker = loadWorkerProfile()

@@ -51,6 +51,13 @@ fun LoginScreen(
         state.signedIn?.let(onSignedIn)
     }
 
+    if (state.awaitingCaptcha) {
+        TurnstileChallenge(
+            onToken = viewModel::onCaptchaToken,
+            onFailed = viewModel::onCaptchaFailed
+        )
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -109,7 +116,7 @@ fun LoginScreen(
             tagalog = stringResource(R.string.action_sign_in_tl),
             onClick = viewModel::onSubmit,
             enabled = state.canSubmit,
-            loading = state.submitting
+            loading = state.busy
         )
 
         Text(

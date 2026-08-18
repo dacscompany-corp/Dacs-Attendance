@@ -36,6 +36,16 @@ android {
             "SUPABASE_URL",
             "\"https://hqbgduyonlbbsvjuapre.supabase.co\""
         )
+        // The Turnstile challenge page, served from the existing DAC's
+        // web deployment. It has to come from that domain: the Turnstile
+        // sitekey is scoped to it, so a widget rendered anywhere else --
+        // including a file:// page inside this APK -- produces a token
+        // the auth server rejects.
+        buildConfigField(
+            "String",
+            "CAPTCHA_URL",
+            "\"https://dacs-company.vercel.app/attendance-captcha.html\""
+        )
         buildConfigField(
             "String",
             "SUPABASE_ANON_KEY",
