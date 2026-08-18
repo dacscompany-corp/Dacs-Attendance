@@ -54,6 +54,8 @@ supabase-auth               = { group = "io.github.jan-tennert.supabase", name =
 supabase-postgrest          = { group = "io.github.jan-tennert.supabase", name = "postgrest-kt" }
 supabase-storage            = { group = "io.github.jan-tennert.supabase", name = "storage-kt" }
 ktor-client-okhttp          = { group = "io.ktor",                   name = "ktor-client-okhttp",       version.ref = "ktor" }
+ktor-client-content-negotiation = { group = "io.ktor",               name = "ktor-client-content-negotiation", version.ref = "ktor" }
+ktor-serialization-json     = { group = "io.ktor",                   name = "ktor-serialization-kotlinx-json", version.ref = "ktor" }
 kotlinx-serialization-json  = { group = "org.jetbrains.kotlinx",     name = "kotlinx-serialization-json", version.ref = "serialization" }
 multiplatform-settings      = { group = "com.russhwolf",             name = "multiplatform-settings",   version.ref = "multiplatformSettings" }
 androidx-security-crypto    = { group = "androidx.security",         name = "security-crypto",          version.ref = "securityCrypto" }

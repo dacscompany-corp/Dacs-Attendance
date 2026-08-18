@@ -6,6 +6,7 @@ import com.dacs.attendance.data.local.TermsCache
 import com.dacs.attendance.data.repo.AuthRepository
 import com.dacs.attendance.data.repo.TermsRepository
 import com.dacs.attendance.domain.AttendanceTerms
+import com.dacs.attendance.domain.Eligibility
 import com.dacs.attendance.domain.StartupGate
 import com.dacs.attendance.domain.WorkerProfile
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -47,7 +48,20 @@ class RootViewModel @Inject constructor(
 
     private suspend fun resume() {
         val worker = auth.currentWorker()
-        _state.value = if (worker == null) AppState.SignedOut else evaluate(worker)
+        when {
+            worker == null -> _state.value = AppState.SignedOut
+
+            // The session outlives the account. An admin who turns a
+            // worker off expects them out of the app, not carried in by a
+            // token issued last week -- the RPCs would refuse them anyway,
+            // four screens later, with no explanation.
+            worker.eligibility() != Eligibility.Allowed -> {
+                auth.signOut()
+                _state.value = AppState.SignedOut
+            }
+
+            else -> _state.value = evaluate(worker)
+        }
     }
 
     fun onSignedIn(worker: WorkerProfile) {

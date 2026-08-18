@@ -67,9 +67,9 @@ private fun LoginFailure.copy(): Pair<String, String> = when (this) {
     LoginFailure.NotAWorker ->
         stringResource(R.string.error_not_a_worker) to
             stringResource(R.string.error_not_a_worker_tl)
-    LoginFailure.CaptchaRequired ->
-        stringResource(R.string.error_captcha) to
-            stringResource(R.string.error_captcha_tl)
+    LoginFailure.TooManyAttempts ->
+        stringResource(R.string.error_too_many_attempts) to
+            stringResource(R.string.error_too_many_attempts_tl)
     LoginFailure.NoConnection ->
         stringResource(R.string.error_no_connection) to
             stringResource(R.string.error_no_connection_tl)

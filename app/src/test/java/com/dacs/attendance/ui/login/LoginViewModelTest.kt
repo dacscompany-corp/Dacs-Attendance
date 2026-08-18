@@ -39,17 +39,9 @@ class LoginViewModelTest {
             private set
         var lastEmail: String? = null
             private set
-        var lastCaptchaToken: String? = null
-            private set
-
-        override suspend fun signIn(
-            email: String,
-            password: String,
-            captchaToken: String?
-        ): Result<WorkerProfile> {
+        override suspend fun signIn(email: String, password: String): Result<WorkerProfile> {
             calls++
             lastEmail = email
-            lastCaptchaToken = captchaToken
             return result
         }
 
@@ -73,51 +65,7 @@ class LoginViewModelTest {
         advanceUntilIdle()
 
         assertEquals(0, auth.calls)
-        assertFalse(vm.uiState.value.awaitingCaptcha)
         assertEquals(LoginFailure.MissingFields, vm.uiState.value.failure)
-    }
-
-    @Test
-    fun `a filled form asks for a captcha before touching the network`() = runTest {
-        // This project enforces Turnstile on auth, so a password grant with
-        // no token is refused outright. Sending it anyway would burn a
-        // round trip to be told what we already know.
-        val auth = FakeAuth(Result.success(worker))
-        val vm = LoginViewModel(auth)
-
-        signIn(vm)
-        advanceUntilIdle()
-
-        assertTrue(vm.uiState.value.awaitingCaptcha)
-        assertEquals(0, auth.calls)
-    }
-
-    @Test
-    fun `the captcha token is handed to sign-in`() = runTest {
-        val auth = FakeAuth(Result.success(worker))
-        val vm = LoginViewModel(auth)
-
-        signIn(vm)
-        vm.onCaptchaToken("turnstile-token")
-        advanceUntilIdle()
-
-        assertEquals("turnstile-token", auth.lastCaptchaToken)
-        assertFalse(vm.uiState.value.awaitingCaptcha)
-    }
-
-    @Test
-    fun `a captcha the worker could not solve never reaches the network`() = runTest {
-        val auth = FakeAuth(Result.success(worker))
-        val vm = LoginViewModel(auth)
-
-        signIn(vm)
-        vm.onCaptchaFailed()
-        advanceUntilIdle()
-
-        assertEquals(0, auth.calls)
-        assertFalse(vm.uiState.value.awaitingCaptcha)
-        assertFalse(vm.uiState.value.submitting)
-        assertEquals(LoginFailure.CaptchaRequired, vm.uiState.value.failure)
     }
 
     @Test
@@ -130,7 +78,6 @@ class LoginViewModelTest {
         vm.onEmailChange("  juan@dacsbuilding.com ")
         vm.onPasswordChange("secret123")
         vm.onSubmit()
-        vm.onCaptchaToken("turnstile-token")
         advanceUntilIdle()
 
         assertEquals("juan@dacsbuilding.com", auth.lastEmail)
@@ -142,11 +89,24 @@ class LoginViewModelTest {
         val vm = LoginViewModel(auth)
 
         signIn(vm, password = "wrong")
-        vm.onCaptchaToken("turnstile-token")
         advanceUntilIdle()
 
         assertEquals(LoginFailure.WrongCredentials, vm.uiState.value.failure)
         assertFalse(vm.uiState.value.submitting)
+    }
+
+    @Test
+    fun `too many attempts is not reported as a wrong password`() = runTest {
+        // The sign-in function throttles per email. Telling a worker their
+        // password is wrong when they are simply locked out for a minute
+        // sends them to the office for nothing.
+        val auth = FakeAuth(Result.failure(LoginRejected(LoginFailure.TooManyAttempts)))
+        val vm = LoginViewModel(auth)
+
+        signIn(vm)
+        advanceUntilIdle()
+
+        assertEquals(LoginFailure.TooManyAttempts, vm.uiState.value.failure)
     }
 
     @Test
@@ -155,7 +115,6 @@ class LoginViewModelTest {
         val vm = LoginViewModel(auth)
 
         signIn(vm)
-        vm.onCaptchaToken("turnstile-token")
         advanceUntilIdle()
 
         assertEquals(LoginFailure.AccountInactive, vm.uiState.value.failure)
@@ -167,7 +126,6 @@ class LoginViewModelTest {
         val vm = LoginViewModel(auth)
 
         signIn(vm, password = "wrong")
-        vm.onCaptchaToken("turnstile-token")
         advanceUntilIdle()
         vm.onPasswordChange("wrong2")
 
@@ -180,7 +138,6 @@ class LoginViewModelTest {
         val vm = LoginViewModel(auth)
 
         signIn(vm)
-        vm.onCaptchaToken("turnstile-token")
         advanceUntilIdle()
 
         assertNull(vm.uiState.value.failure)

@@ -32,20 +32,21 @@ class LoginFailureTest {
     }
 
     @Test
-    fun `a captcha challenge is its own failure, not a generic server error`() {
-        // This project enforces Cloudflare Turnstile on auth: a password
-        // grant with no captcha token is refused outright. Verified against
-        // the live endpoint on 2026-08-18. Reporting it as "something went
-        // wrong" would send whoever debugs it looking at the password.
-        assertEquals(
-            LoginFailure.CaptchaRequired,
-            LoginFailure.of(
-                RuntimeException(
-                    """{"code":400,"error_code":"captcha_failed",""" +
-                        """"msg":"captcha protection: request disallowed"}"""
-                )
-            )
-        )
+    fun `the sign-in function's error codes map to their own sentences`() {
+        // attendance-signin returns a stable code, decided server-side
+        // where the profile row is readable. These are the only codes it
+        // emits; anything else means the function and the app disagree,
+        // which is a server problem, not a worker mistake.
+        assertEquals(LoginFailure.WrongCredentials, LoginFailure.forCode("INVALID_CREDENTIALS"))
+        assertEquals(LoginFailure.NotAWorker, LoginFailure.forCode("NOT_A_WORKER"))
+        assertEquals(LoginFailure.AccountInactive, LoginFailure.forCode("ACCOUNT_INACTIVE"))
+        assertEquals(LoginFailure.TooManyAttempts, LoginFailure.forCode("TOO_MANY_ATTEMPTS"))
+    }
+
+    @Test
+    fun `an unknown or missing code is a server problem, not a wrong password`() {
+        assertEquals(LoginFailure.ServerProblem, LoginFailure.forCode("SOMETHING_NEW"))
+        assertEquals(LoginFailure.ServerProblem, LoginFailure.forCode(null))
     }
 
     @Test

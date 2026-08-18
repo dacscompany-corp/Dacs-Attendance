@@ -18,27 +18,20 @@ data class LoginUiState(
     val email: String = "",
     val password: String = "",
     val passwordVisible: Boolean = false,
-    /** The Turnstile challenge is on screen and we are waiting for a token. */
-    val awaitingCaptcha: Boolean = false,
     val submitting: Boolean = false,
     val failure: LoginFailure? = null,
     /** Set once, when sign-in succeeded; the root reads it and moves on. */
     val signedIn: WorkerProfile? = null
 ) {
-    val canSubmit: Boolean get() = !submitting && !awaitingCaptcha
-    val busy: Boolean get() = submitting || awaitingCaptcha
+    val canSubmit: Boolean get() = !submitting
 }
 
 /**
- * Sign-in is two steps, not one: solve the captcha, then authenticate.
+ * The login screen's state machine.
  *
- * The project enforces Cloudflare Turnstile on auth, so a password grant
- * with no token is refused before it is ever checked. Asking for the
- * token first means a wrong password and a missing token stay distinct
- * failures instead of arriving as the same opaque one.
- *
- * The challenge itself is a WebView the screen owns; this class only
- * knows that a token either arrived or did not.
+ * Every refusal reaching [LoginUiState.failure] was decided server-side
+ * by the sign-in function, so this class never has to guess why a worker
+ * was turned away.
  */
 @HiltViewModel
 class LoginViewModel @Inject constructor(
@@ -60,7 +53,7 @@ class LoginViewModel @Inject constructor(
 
     fun onSubmit() {
         val state = _uiState.value
-        if (state.busy) return
+        if (state.submitting) return
 
         // Trimmed because a trailing space from a phone keyboard is an
         // authentication failure the worker cannot see.
@@ -69,16 +62,9 @@ class LoginViewModel @Inject constructor(
             return
         }
 
-        _uiState.update { it.copy(awaitingCaptcha = true, failure = null) }
-    }
-
-    fun onCaptchaToken(token: String) {
-        val state = _uiState.value
-        if (!state.awaitingCaptcha) return
-
-        _uiState.update { it.copy(awaitingCaptcha = false, submitting = true) }
+        _uiState.update { it.copy(submitting = true, failure = null) }
         viewModelScope.launch {
-            val result = auth.signIn(state.email.trim(), state.password, token)
+            val result = auth.signIn(state.email.trim(), state.password)
             _uiState.update { current ->
                 result.fold(
                     onSuccess = { worker ->
@@ -93,14 +79,5 @@ class LoginViewModel @Inject constructor(
                 )
             }
         }
-    }
-
-    /** The challenge failed, expired, or the worker backed out of it. */
-    fun onCaptchaFailed() = _uiState.update {
-        it.copy(
-            awaitingCaptcha = false,
-            submitting = false,
-            failure = LoginFailure.CaptchaRequired
-        )
     }
 }

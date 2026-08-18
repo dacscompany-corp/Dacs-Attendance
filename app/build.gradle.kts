@@ -36,15 +36,15 @@ android {
             "SUPABASE_URL",
             "\"https://hqbgduyonlbbsvjuapre.supabase.co\""
         )
-        // The Turnstile challenge page, served from the existing DAC's
-        // web deployment. It has to come from that domain: the Turnstile
-        // sitekey is scoped to it, so a widget rendered anywhere else --
-        // including a file:// page inside this APK -- produces a token
-        // the auth server rejects.
+        // The Edge Function that signs a worker in. It runs with the
+        // service_role key server-side, which is what lets the APK stay
+        // free of any web view: captcha is enforced on client callers and
+        // bypassed for service-role ones, so the native app posts here
+        // instead of talking to the auth endpoint directly.
         buildConfigField(
             "String",
-            "CAPTCHA_URL",
-            "\"https://dacs-company.vercel.app/attendance-captcha.html\""
+            "SIGN_IN_FUNCTION_URL",
+            "\"https://hqbgduyonlbbsvjuapre.supabase.co/functions/v1/attendance-signin\""
         )
         buildConfigField(
             "String",
@@ -129,6 +129,8 @@ dependencies {
     implementation(libs.supabase.postgrest)
     implementation(libs.supabase.storage)
     implementation(libs.ktor.client.okhttp)
+    implementation(libs.ktor.client.content.negotiation)
+    implementation(libs.ktor.serialization.json)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.multiplatform.settings)
     implementation(libs.androidx.security.crypto)

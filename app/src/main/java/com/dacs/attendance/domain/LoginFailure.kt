@@ -12,24 +12,33 @@ enum class LoginFailure {
     WrongCredentials,
     AccountInactive,
     NotAWorker,
-
-    /**
-     * The Supabase project enforces Cloudflare Turnstile on auth, and the
-     * app has no token to send. Its own case on purpose: this is a
-     * configuration problem, not something the worker typed wrong, and
-     * whoever debugs it should not start at the password.
-     */
-    CaptchaRequired,
+    TooManyAttempts,
     NoConnection,
     ServerProblem;
 
     companion object {
+
+        /**
+         * The stable codes `attendance-signin` returns. The decision is
+         * made server-side, where the profile row is readable without
+         * handing a session to an account that is not allowed one.
+         */
+        fun forCode(code: String?): LoginFailure = when (code) {
+            "INVALID_CREDENTIALS" -> WrongCredentials
+            "NOT_A_WORKER" -> NotAWorker
+            "ACCOUNT_INACTIVE" -> AccountInactive
+            "TOO_MANY_ATTEMPTS" -> TooManyAttempts
+            // An unknown code means the function and the app have drifted
+            // apart. That is our problem, not the worker's password.
+            else -> ServerProblem
+        }
+
+        /** For transport failures, which never carry one of the codes above. */
         fun of(error: Throwable): LoginFailure = when {
             // No signal is not a wrong password. On site the two mean
             // completely different things: "try again in a minute" versus
             // "walk to the office".
             error is IOException -> NoConnection
-            error.mentions("captcha") -> CaptchaRequired
             error.looksLikeBadCredentials() -> WrongCredentials
             else -> ServerProblem
         }

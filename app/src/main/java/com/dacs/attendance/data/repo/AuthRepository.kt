@@ -15,21 +15,12 @@ interface AuthRepository {
     /**
      * Signs in and resolves the worker's profile.
      *
-     * [captchaToken] is a Cloudflare Turnstile token. This Supabase project
-     * enforces captcha on auth (Auth -> Bot & Abuse Protection), so a
-     * password grant without one is refused with `captcha_failed`. It is
-     * nullable only so the contract survives the setting being turned off.
-     *
-     * Fails with [LoginRejected] when the account exists but must not be
-     * let in (deactivated, or not a worker account at all). The session is
-     * signed back out in that case, so a refused account never leaves a
-     * live session on the device.
+     * Fails with [LoginRejected] carrying the reason the server gave --
+     * wrong password, deactivated account, not a worker account, or too
+     * many attempts. Those decisions are made server-side, so a refused
+     * account never receives a session at all.
      */
-    suspend fun signIn(
-        email: String,
-        password: String,
-        captchaToken: String?
-    ): Result<WorkerProfile>
+    suspend fun signIn(email: String, password: String): Result<WorkerProfile>
 
     suspend fun signOut()
 

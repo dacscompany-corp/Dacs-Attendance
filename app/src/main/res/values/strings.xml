@@ -63,14 +63,12 @@
     <string name="error_account_inactive_tl">Naka-off ang account na ito. Tawagan ang opisina.</string>
     <string name="error_not_a_worker">This is not a worker account.</string>
     <string name="error_not_a_worker_tl">Hindi ito worker account.</string>
-    <string name="error_captcha">Sign-in is blocked on this phone. Call the office.</string>
-    <string name="error_captcha_tl">Naka-block ang pag-log in sa telepono na ito. Tawagan ang opisina.</string>
+    <string name="error_too_many_attempts">Too many tries. Wait a minute, then try again.</string>
+    <string name="error_too_many_attempts_tl">Sobrang dami nang subok. Maghintay ng isang minuto.</string>
     <string name="error_no_connection">No signal right now. Try again in a moment.</string>
     <string name="error_no_connection_tl">Walang signal ngayon. Subukan ulit mamaya.</string>
     <string name="error_server">Something went wrong. Try again.</string>
     <string name="error_server_tl">May nasira. Subukan ulit.</string>
-
-    <string name="captcha_wait">One quick check before sign in. / Sandaling pagsusuri bago mag-log in.</string>
 
     <!-- Shared actions -->
     <string name="action_retry">TRY AGAIN</string>
