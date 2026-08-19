@@ -142,7 +142,7 @@ fun TimeFlowScreen(
 // ── 04 · Select project ─────────────────────────────────────────────
 
 @Composable
-private fun PickProjectStep(
+internal fun PickProjectStep(
     projects: List<AttendanceProject>,
     loading: Boolean,
     selectedId: Long?,
@@ -238,7 +238,7 @@ private fun ProjectRow(
 // ── 06 · Check photo ────────────────────────────────────────────────
 
 @Composable
-private fun CheckPhotoStep(
+internal fun CheckPhotoStep(
     photoPath: String?,
     accent: Color,
     onRetake: () -> Unit,
@@ -286,7 +286,7 @@ private fun CheckPhotoStep(
 // ── 07 · Description ────────────────────────────────────────────────
 
 @Composable
-private fun DescribeStep(
+internal fun DescribeStep(
     description: String,
     direction: TimeDirection,
     accent: Color,
@@ -351,7 +351,7 @@ private fun DescribeStep(
 // ── 08 · Confirmation ───────────────────────────────────────────────
 
 @Composable
-private fun ConfirmedStep(
+internal fun ConfirmedStep(
     record: AttendanceRecord?,
     direction: TimeDirection,
     accent: Color,

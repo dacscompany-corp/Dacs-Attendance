@@ -72,6 +72,31 @@ fun DashboardScreen(
         }
     }
 
+    DashboardContent(
+        worker = worker,
+        state = state,
+        onStartFlow = onStartFlow,
+        onRetry = viewModel::refresh,
+        modifier = modifier
+    )
+}
+
+/**
+ * The dashboard with no ViewModel attached.
+ *
+ * Split out so every state -- idle, working, complete, offline -- can be
+ * rendered in a preview and looked at without a device. The states differ
+ * only by what today's record says, and seeing them side by side is how
+ * you catch a stepper that lies.
+ */
+@Composable
+fun DashboardContent(
+    worker: WorkerProfile,
+    state: DashboardUiState,
+    onStartFlow: (TimeDirection) -> Unit,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -114,7 +139,7 @@ fun DashboardScreen(
             )
         )
 
-        state.failure?.let { AttendanceFailureNotice(it, onRetry = viewModel::refresh) }
+        state.failure?.let { AttendanceFailureNotice(it, onRetry = onRetry) }
 
         when {
             state.record == null && state.failure == null -> Text(
