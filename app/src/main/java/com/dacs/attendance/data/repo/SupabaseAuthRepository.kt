@@ -7,11 +7,14 @@ import com.dacs.attendance.domain.LoginFailure
 import com.dacs.attendance.domain.WorkerProfile
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.user.UserInfo
 import io.github.jan.supabase.auth.user.UserSession
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.Columns
 import javax.inject.Inject
 import javax.inject.Singleton
+
+private const val AUDIENCE = "authenticated"
 
 @Singleton
 class SupabaseAuthRepository @Inject constructor(
@@ -37,15 +40,24 @@ class SupabaseAuthRepository @Inject constructor(
 
                 is SignInOutcome.Success -> {
                     val session = outcome.body.session
+                    val worker = outcome.body.worker.toDomain()
                     client.auth.importSession(
                         UserSession(
                             accessToken = session.accessToken,
                             refreshToken = session.refreshToken,
                             expiresIn = session.expiresIn,
-                            tokenType = session.tokenType
+                            tokenType = session.tokenType,
+                            // The user MUST be attached. It is what
+                            // currentUserOrNull() returns, and that id is
+                            // both the storage path prefix every photo
+                            // upload is authorised against and the way a
+                            // restored session identifies its worker. An
+                            // imported session without it looks signed in
+                            // to PostgREST and signed out to the app.
+                            user = UserInfo(id = worker.id, aud = AUDIENCE)
                         )
                     )
-                    outcome.body.worker.toDomain()
+                    worker
                 }
             }
         }
@@ -55,7 +67,15 @@ class SupabaseAuthRepository @Inject constructor(
     }
 
     override suspend fun currentWorker(): WorkerProfile? =
-        runCatchingExceptCancellation { loadWorkerProfile() }.getOrNull()
+        runCatchingExceptCancellation {
+            // The Auth plugin restores the stored session asynchronously.
+            // Asking before it settles reports "signed out" for a worker
+            // who is not -- and sends them back to a login screen every
+            // morning, which is the one thing session persistence exists
+            // to prevent.
+            client.auth.awaitInitialization()
+            loadWorkerProfile()
+        }.getOrNull()
 
     /**
      * Used on launch, when a session has been restored from encrypted

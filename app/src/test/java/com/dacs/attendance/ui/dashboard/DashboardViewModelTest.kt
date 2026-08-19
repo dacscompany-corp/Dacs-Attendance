@@ -15,6 +15,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -106,6 +107,22 @@ class DashboardViewModelTest {
         vm.onTick(Instant.parse("2026-08-19T02:30:00Z")) // 10:30 Manila
 
         assertEquals("2h 45m", vm.uiState.value.totalHoursLabel)
+    }
+
+    @Test
+    fun `nothing is offered until today's record has actually been read`() = runTest {
+        // Found on a real device: the dashboard rendered "no record yet"
+        // AND the TIME IN button while the query was still in flight. On a
+        // slow connection a worker acts on that and times in twice -- the
+        // exact duplicate the whole day-key design exists to prevent.
+        val vm = DashboardViewModel(FakeAttendance(Result.success(record(AttendanceStatus.WORKING))))
+
+        // Deliberately BEFORE advanceUntilIdle: this is the in-flight state.
+        assertTrue(vm.uiState.value.loading)
+        assertNull(vm.uiState.value.nextAction)
+
+        advanceUntilIdle()
+        assertEquals(TimeDirection.OUT, vm.uiState.value.nextAction)
     }
 
     @Test

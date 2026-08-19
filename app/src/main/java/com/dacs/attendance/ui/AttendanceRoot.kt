@@ -9,7 +9,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -148,13 +147,12 @@ private fun SignedInArea(
     var reloadKey by rememberSaveable { mutableStateOf(0) }
 
     when (val direction = flow) {
-        null -> key(reloadKey) {
-            DashboardScreen(
-                worker = worker,
-                onStartFlow = { flow = it },
-                modifier = modifier
-            )
-        }
+        null -> DashboardScreen(
+            worker = worker,
+            onStartFlow = { flow = it },
+            refreshKey = reloadKey,
+            modifier = modifier
+        )
 
         else -> TimeFlowScreen(
             direction = direction,

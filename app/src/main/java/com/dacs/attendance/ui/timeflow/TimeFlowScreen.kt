@@ -26,6 +26,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -76,6 +77,11 @@ fun TimeFlowScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val accent = if (direction == TimeDirection.IN) Green else Brown
+
+    // Starts the flow and loads the picker. Keyed on direction so a Time
+    // Out started right after a Time In gets a fresh event id rather than
+    // reusing the one that already recorded the morning.
+    LaunchedEffect(direction) { viewModel.start(direction) }
 
     BackHandler(enabled = state.step != FlowStep.Confirmed) {
         if (state.step == FlowStep.PickProject) onCancelled() else viewModel.onBack()

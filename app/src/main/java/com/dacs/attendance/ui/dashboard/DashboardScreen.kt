@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -58,9 +59,21 @@ fun DashboardScreen(
     worker: WorkerProfile,
     onStartFlow: (TimeDirection) -> Unit,
     modifier: Modifier = Modifier,
+    /**
+     * Bumped by the caller after a submission. The ViewModel is scoped to
+     * the Activity, so it OUTLIVES this composable -- recreating the
+     * composable (or keying it) does not re-run its init, and the
+     * dashboard would keep showing the state from before the worker timed
+     * in. This is the explicit re-read.
+     */
+    refreshKey: Int = 0,
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+    LaunchedEffect(refreshKey) {
+        if (refreshKey > 0) viewModel.refresh()
+    }
 
     // The live "HOURS SO FAR". A minute is the smallest unit anyone reads
     // here, so ticking faster would just burn battery on a phone that has
@@ -142,6 +155,8 @@ fun DashboardContent(
         state.failure?.let { AttendanceFailureNotice(it, onRetry = onRetry) }
 
         when {
+            state.loading -> CircularProgressIndicator(color = Green)
+
             state.record == null && state.failure == null -> Text(
                 text = stringResource(R.string.no_time_yet),
                 style = MaterialTheme.typography.bodyMedium,

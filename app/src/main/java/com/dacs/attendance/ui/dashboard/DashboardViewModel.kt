@@ -29,7 +29,11 @@ data class DashboardUiState(
      */
     val nextAction: TimeDirection?
         get() = when {
-            failure != null -> null
+            // Nothing is offered until today's record has actually been
+            // read. "Not loaded yet" and "no record today" are different
+            // facts, and a worker who acts on the first one as though it
+            // were the second times in twice.
+            loading || failure != null -> null
             record == null -> TimeDirection.IN
             else -> record.nextAction
         }
