@@ -7,6 +7,7 @@ import com.dacs.attendance.domain.AttendanceRecord
 import com.dacs.attendance.domain.AttendanceStatus
 import com.dacs.attendance.domain.TimeDirection
 import com.dacs.attendance.support.MainDispatcherRule
+import com.dacs.attendance.ui.components.StepState
 import java.io.IOException
 import java.time.Instant
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -123,6 +124,53 @@ class DashboardViewModelTest {
 
         advanceUntilIdle()
         assertEquals(TimeDirection.OUT, vm.uiState.value.nextAction)
+    }
+
+    @Test
+    fun `a finished day shows all three steps as done`() = runTest {
+        // Found on a device: a complete day rendered "Working: not yet"
+        // and "Time Out: locked" immediately above "TOTAL HOURS 5h 45m".
+        // The stepper is the first thing a worker reads, and it was
+        // contradicting the number underneath it.
+        val vm = DashboardViewModel(
+            FakeAttendance(
+                Result.success(
+                    record(
+                        AttendanceStatus.COMPLETE,
+                        timeOut = Instant.parse("2026-08-19T09:30:00Z"),
+                        totalMinutes = 585
+                    )
+                )
+            )
+        )
+        advanceUntilIdle()
+
+        val state = vm.uiState.value
+        assertEquals(StepState.Done, state.timeInStep)
+        assertEquals(StepState.Done, state.workingStep)
+        assertEquals(StepState.Done, state.timeOutStep)
+    }
+
+    @Test
+    fun `an open day shows time in done, working now, time out available`() = runTest {
+        val vm = DashboardViewModel(FakeAttendance(Result.success(record(AttendanceStatus.WORKING))))
+        advanceUntilIdle()
+
+        val state = vm.uiState.value
+        assertEquals(StepState.Done, state.timeInStep)
+        assertEquals(StepState.Now, state.workingStep)
+        assertEquals(StepState.Now, state.timeOutStep)
+    }
+
+    @Test
+    fun `a day not started shows time in now and the rest locked`() = runTest {
+        val vm = DashboardViewModel(FakeAttendance(Result.success(null)))
+        advanceUntilIdle()
+
+        val state = vm.uiState.value
+        assertEquals(StepState.Now, state.timeInStep)
+        assertEquals(StepState.Locked, state.workingStep)
+        assertEquals(StepState.Locked, state.timeOutStep)
     }
 
     @Test

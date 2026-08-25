@@ -76,7 +76,10 @@
     <string name="action_log_out">LOG OUT</string>
     <string name="action_log_out_tl">Mag-log out</string>
     <!-- Dashboard, B3 -->
+    <string name="greeting_afternoon">Magandang hapon,</string>
+    <string name="greeting_evening">Magandang gabi,</string>
     <string name="step_done_tl">Tapos na</string>
+    <string name="step_locked_tl">Hindi pa</string>
     <string name="step_working_now_tl">Ginagawa ngayon</string>
     <string name="step_time_out_now_tl">Pwede na</string>
     <string name="timed_in_at">Timed in at %1$s</string>

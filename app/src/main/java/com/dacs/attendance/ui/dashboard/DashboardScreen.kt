@@ -27,6 +27,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dacs.attendance.R
 import com.dacs.attendance.domain.AttendanceStatus
 import com.dacs.attendance.domain.AttendanceZone
+import com.dacs.attendance.domain.Greeting
+import com.dacs.attendance.domain.greetingAt
 import com.dacs.attendance.domain.TimeDirection
 import com.dacs.attendance.domain.WorkerProfile
 import com.dacs.attendance.ui.components.AttendanceFailureNotice
@@ -117,7 +119,13 @@ fun DashboardContent(
         verticalArrangement = Arrangement.spacedBy(Dimens.GapMedium)
     ) {
         Text(
-            text = stringResource(R.string.greeting_morning),
+            text = stringResource(
+                when (greetingAt(Instant.now())) {
+                    Greeting.MORNING -> R.string.greeting_morning
+                    Greeting.AFTERNOON -> R.string.greeting_afternoon
+                    Greeting.EVENING -> R.string.greeting_evening
+                }
+            ),
             style = MaterialTheme.typography.bodyLarge,
             color = TextMuted
         )
@@ -134,22 +142,12 @@ fun DashboardContent(
         Spacer(Modifier.height(Dimens.GapSmall))
 
         DayStepper(
-            timeIn = if (state.record == null) StepState.Now else StepState.Done,
-            working = if (state.working) StepState.Now else StepState.Locked,
-            timeOut = when {
-                state.record?.status == AttendanceStatus.COMPLETE -> StepState.Done
-                state.working -> StepState.Now
-                else -> StepState.Locked
-            },
-            timeInCaption = stringResource(
-                if (state.record == null) R.string.step_time_in_tl else R.string.step_done_tl
-            ),
-            workingCaption = stringResource(
-                if (state.working) R.string.step_working_now_tl else R.string.step_working_tl
-            ),
-            timeOutCaption = stringResource(
-                if (state.working) R.string.step_time_out_now_tl else R.string.step_time_out_tl
-            )
+            timeIn = state.timeInStep,
+            working = state.workingStep,
+            timeOut = state.timeOutStep,
+            timeInCaption = stringResource(state.timeInStep.captionFor(R.string.step_time_in_tl)),
+            workingCaption = stringResource(state.workingStep.captionFor(R.string.step_working_now_tl)),
+            timeOutCaption = stringResource(state.timeOutStep.captionFor(R.string.step_time_out_now_tl))
         )
 
         state.failure?.let { AttendanceFailureNotice(it, onRetry = onRetry) }
@@ -250,4 +248,15 @@ private fun TodaySummary(
             color = Green
         )
     }
+}
+
+/**
+ * The caption under a step. Done and Locked read the same in every
+ * column, so only the "now" wording differs per step -- which is why it
+ * is the only one passed in.
+ */
+private fun StepState.captionFor(nowCaption: Int): Int = when (this) {
+    StepState.Done -> R.string.step_done_tl
+    StepState.Now -> nowCaption
+    StepState.Locked -> R.string.step_locked_tl
 }

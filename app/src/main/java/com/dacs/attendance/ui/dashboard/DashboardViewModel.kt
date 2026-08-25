@@ -8,6 +8,7 @@ import com.dacs.attendance.domain.AttendanceRecord
 import com.dacs.attendance.domain.AttendanceStatus
 import com.dacs.attendance.domain.TimeDirection
 import com.dacs.attendance.domain.TotalHours
+import com.dacs.attendance.ui.components.StepState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Instant
 import javax.inject.Inject
@@ -39,6 +40,29 @@ data class DashboardUiState(
         }
 
     val working: Boolean get() = record?.status == AttendanceStatus.WORKING
+
+    private val complete: Boolean get() = record?.status == AttendanceStatus.COMPLETE
+
+    // The 1-2-3 stepper, derived here rather than assembled in the
+    // composable. A finished day must read as finished on all three: the
+    // stepper is the first thing a worker looks at, and it was saying
+    // "Working: not yet" directly above "TOTAL HOURS 5h 45m".
+    val timeInStep: StepState
+        get() = if (record == null) StepState.Now else StepState.Done
+
+    val workingStep: StepState
+        get() = when {
+            complete -> StepState.Done
+            working -> StepState.Now
+            else -> StepState.Locked
+        }
+
+    val timeOutStep: StepState
+        get() = when {
+            complete -> StepState.Done
+            working -> StepState.Now
+            else -> StepState.Locked
+        }
 }
 
 @HiltViewModel
