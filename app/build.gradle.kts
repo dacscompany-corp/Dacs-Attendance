@@ -90,6 +90,13 @@ android {
         buildConfig = true
     }
 
+    // Room schemas are committed. A queue that loses rows on upgrade
+    // loses attendance, so migrations here are not optional and they
+    // need the schema history to be written against.
+    ksp {
+        arg("room.schemaLocation", "$projectDir/schemas")
+    }
+
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -128,6 +135,22 @@ dependencies {
     // Decodes the captured file honouring its EXIF rotation. Doing it by
     // hand gets a sideways selfie on half the phones in the field.
     implementation(libs.coil.compose)
+    // CameraX writes rotation to EXIF rather than rotating pixels.
+    implementation(libs.androidx.exifinterface)
+
+    // Room is the app's memory when there is no signal: the submission
+    // queue, plus mirrors of the record and project list so the dashboard
+    // and the picker still render.
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
+
+    // WorkManager survives process death and reboots, which a coroutine
+    // scoped to a ViewModel does not. A worker who taps SUBMIT and puts
+    // the phone in their pocket must still have the record uploaded.
+    implementation(libs.androidx.work.runtime)
+    implementation(libs.androidx.hilt.work)
+    ksp(libs.androidx.hilt.compiler)
 
     implementation(libs.hilt.android)
     implementation(libs.hilt.viewmodel.compose)

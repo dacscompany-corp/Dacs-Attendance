@@ -3,9 +3,9 @@ package com.dacs.attendance.di
 import com.dacs.attendance.data.repo.AttendanceRepository
 import com.dacs.attendance.data.repo.AuthRepository
 import com.dacs.attendance.data.repo.ProjectRepository
-import com.dacs.attendance.data.repo.SupabaseAttendanceRepository
+import com.dacs.attendance.data.repo.OfflineAttendanceRepository
+import com.dacs.attendance.data.repo.OfflineProjectRepository
 import com.dacs.attendance.data.repo.SupabaseAuthRepository
-import com.dacs.attendance.data.repo.SupabaseProjectRepository
 import com.dacs.attendance.data.repo.SupabaseTermsRepository
 import com.dacs.attendance.data.repo.TermsRepository
 import dagger.Binds
@@ -26,11 +26,15 @@ abstract class RepositoryModule {
     @Singleton
     abstract fun bindTermsRepository(impl: SupabaseTermsRepository): TermsRepository
 
+    // The OFFLINE implementations are what the app sees. They own the
+    // queue and the mirrors, and call the Supabase ones underneath --
+    // which is why those stay concrete classes rather than being bound
+    // to these interfaces themselves.
     @Binds
     @Singleton
-    abstract fun bindAttendanceRepository(impl: SupabaseAttendanceRepository): AttendanceRepository
+    abstract fun bindAttendanceRepository(impl: OfflineAttendanceRepository): AttendanceRepository
 
     @Binds
     @Singleton
-    abstract fun bindProjectRepository(impl: SupabaseProjectRepository): ProjectRepository
+    abstract fun bindProjectRepository(impl: OfflineProjectRepository): ProjectRepository
 }

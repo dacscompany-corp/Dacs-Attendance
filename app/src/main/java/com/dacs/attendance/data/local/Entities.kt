@@ -1,0 +1,72 @@
+package com.dacs.attendance.data.local
+
+import androidx.room.Entity
+import androidx.room.PrimaryKey
+
+/**
+ * A submission that has not reached the server yet.
+ *
+ * This table IS the worker's day until the upload succeeds. Losing a row
+ * here loses a Time In that the worker was told was recorded -- so it is
+ * written before the confirmation screen is shown, never after.
+ *
+ * [eventId] is the primary key because it is also the RPC's idempotency
+ * key: the same row replayed any number of times produces exactly one
+ * server record.
+ */
+@Entity(tableName = "pending_submission")
+data class PendingSubmissionEntity(
+    @PrimaryKey val eventId: String,
+    /** "IN" or "OUT" -- stored as text so the table is readable in a dump. */
+    val direction: String,
+    val projectId: Long,
+    /** Snapshotted so the queue can render without the project list. */
+    val projectName: String,
+    /** Epoch millis of the SHUTTER, not of the upload. */
+    val capturedAt: Long,
+    val photoLocalPath: String,
+    val description: String?,
+    val latitude: Double?,
+    val longitude: Double?,
+    val accuracyMetres: Double?,
+    /** True when the device had no connection at capture time. Admin-facing only. */
+    val wasOffline: Boolean,
+    val attempts: Int = 0,
+    /** The last refusal, kept so a permanently failed row can explain itself. */
+    val lastError: String?= null,
+    /** Set when the queue has given up; the worker must be told. */
+    val failedPermanently: Boolean = false,
+    val createdAt: Long
+)
+
+/**
+ * The worker's own attendance rows, mirrored locally.
+ *
+ * Without this the dashboard is blank with no signal, which is when the
+ * worker most needs to know whether they have timed in.
+ */
+@Entity(tableName = "cached_record")
+data class CachedRecordEntity(
+    @PrimaryKey val workDate: String,
+    val id: String?,
+    val status: String,
+    val timeInAt: Long?,
+    val timeOutAt: Long?,
+    val timeInProjectName: String?,
+    val timeOutProjectName: String?,
+    val totalMinutes: Int?,
+    /** True while a submission for this day is still queued. */
+    val pending: Boolean = false
+)
+
+/**
+ * The last-known active project list.
+ *
+ * Without it the picker is empty offline and the entire flow is dead at
+ * step 1 -- the spec calls this out explicitly.
+ */
+@Entity(tableName = "cached_project")
+data class CachedProjectEntity(
+    @PrimaryKey val id: Long,
+    val name: String
+)

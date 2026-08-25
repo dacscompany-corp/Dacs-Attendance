@@ -3,6 +3,7 @@ package com.dacs.attendance.ui.dashboard
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dacs.attendance.data.repo.AttendanceRepository
+import com.dacs.attendance.data.repo.ProjectRepository
 import com.dacs.attendance.domain.AttendanceFailure
 import com.dacs.attendance.domain.AttendanceRecord
 import com.dacs.attendance.domain.AttendanceStatus
@@ -67,7 +68,8 @@ data class DashboardUiState(
 
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
-    private val attendance: AttendanceRepository
+    private val attendance: AttendanceRepository,
+    private val projects: ProjectRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DashboardUiState())
@@ -79,6 +81,14 @@ class DashboardViewModel @Inject constructor(
 
     fun refresh() {
         _uiState.update { it.copy(loading = true, failure = null) }
+
+        // Warm the project cache while we have signal. The picker reads
+        // it offline, and a worker who has never opened the picker while
+        // online would otherwise reach step 1 of the flow and find
+        // nothing there. The result is deliberately ignored -- this is a
+        // cache fill, not something the dashboard displays.
+        viewModelScope.launch { projects.activeProjects() }
+
         viewModelScope.launch {
             attendance.today().fold(
                 onSuccess = { record ->

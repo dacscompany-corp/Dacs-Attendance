@@ -165,7 +165,8 @@ fun DashboardContent(
                 timeInLabel = state.record?.timeInAt?.atZone(AttendanceZone)?.format(ClockTime),
                 projectName = state.record?.timeInProjectName,
                 hours = state.totalHoursLabel,
-                complete = state.record?.status == AttendanceStatus.COMPLETE
+                complete = state.record?.status == AttendanceStatus.COMPLETE,
+                pending = state.record?.pending == true
             )
         }
 
@@ -209,7 +210,8 @@ private fun TodaySummary(
     timeInLabel: String?,
     projectName: String?,
     hours: String,
-    complete: Boolean
+    complete: Boolean,
+    pending: Boolean = false
 ) {
     Column(
         modifier = Modifier
@@ -247,6 +249,15 @@ private fun TodaySummary(
             style = MaterialTheme.typography.headlineMedium,
             color = Green
         )
+        if (pending) {
+            // Reassurance, not a warning. The record is safe on the
+            // phone and there is nothing for the worker to do about it.
+            Text(
+                text = stringResource(R.string.will_sync),
+                style = MaterialTheme.typography.bodySmall,
+                color = TextMuted
+            )
+        }
     }
 }
 

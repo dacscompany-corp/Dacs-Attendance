@@ -83,6 +83,7 @@
     <string name="step_working_now_tl">Ginagawa ngayon</string>
     <string name="step_time_out_now_tl">Pwede na</string>
     <string name="timed_in_at">Timed in at %1$s</string>
+    <string name="will_sync">Naka-save sa telepono. Ise-send kapag may signal.</string>
     <string name="hours_total">TOTAL HOURS</string>
     <string name="day_complete">Tapos na ang araw mo. Salamat!</string>
 

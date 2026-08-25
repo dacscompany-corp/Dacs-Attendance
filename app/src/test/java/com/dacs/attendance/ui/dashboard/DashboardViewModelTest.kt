@@ -61,9 +61,12 @@ class DashboardViewModelTest {
         totalMinutes = totalMinutes
     )
 
+    private fun viewModel(result: Result<AttendanceRecord?>) =
+        DashboardViewModel(FakeAttendance(result), RecordingProjects())
+
     @Test
     fun `no record yet means the worker may time in`() = runTest {
-        val vm = DashboardViewModel(FakeAttendance(Result.success(null)))
+        val vm = viewModel(Result.success(null))
         advanceUntilIdle()
 
         assertNull(vm.uiState.value.record)
@@ -73,7 +76,7 @@ class DashboardViewModelTest {
 
     @Test
     fun `an open record means the next action is TIME OUT`() = runTest {
-        val vm = DashboardViewModel(FakeAttendance(Result.success(record(AttendanceStatus.WORKING))))
+        val vm = viewModel(Result.success(record(AttendanceStatus.WORKING)))
         advanceUntilIdle()
 
         assertEquals(TimeDirection.OUT, vm.uiState.value.nextAction)
@@ -83,14 +86,12 @@ class DashboardViewModelTest {
     fun `a finished day offers nothing further`() = runTest {
         // One record per worker per day. Offering TIME IN again could only
         // ever produce ALREADY_TIMED_IN, so the button is not shown.
-        val vm = DashboardViewModel(
-            FakeAttendance(
-                Result.success(
-                    record(
-                        AttendanceStatus.COMPLETE,
-                        timeOut = Instant.parse("2026-08-19T09:30:00Z"),
-                        totalMinutes = 585
-                    )
+        val vm = viewModel(
+            Result.success(
+                record(
+                    AttendanceStatus.COMPLETE,
+                    timeOut = Instant.parse("2026-08-19T09:30:00Z"),
+                    totalMinutes = 585
                 )
             )
         )
@@ -102,7 +103,7 @@ class DashboardViewModelTest {
 
     @Test
     fun `hours so far counts up from time in while working`() = runTest {
-        val vm = DashboardViewModel(FakeAttendance(Result.success(record(AttendanceStatus.WORKING))))
+        val vm = viewModel(Result.success(record(AttendanceStatus.WORKING)))
         advanceUntilIdle()
 
         vm.onTick(Instant.parse("2026-08-19T02:30:00Z")) // 10:30 Manila
@@ -116,7 +117,7 @@ class DashboardViewModelTest {
         // AND the TIME IN button while the query was still in flight. On a
         // slow connection a worker acts on that and times in twice -- the
         // exact duplicate the whole day-key design exists to prevent.
-        val vm = DashboardViewModel(FakeAttendance(Result.success(record(AttendanceStatus.WORKING))))
+        val vm = viewModel(Result.success(record(AttendanceStatus.WORKING)))
 
         // Deliberately BEFORE advanceUntilIdle: this is the in-flight state.
         assertTrue(vm.uiState.value.loading)
@@ -132,14 +133,12 @@ class DashboardViewModelTest {
         // and "Time Out: locked" immediately above "TOTAL HOURS 5h 45m".
         // The stepper is the first thing a worker reads, and it was
         // contradicting the number underneath it.
-        val vm = DashboardViewModel(
-            FakeAttendance(
-                Result.success(
-                    record(
-                        AttendanceStatus.COMPLETE,
-                        timeOut = Instant.parse("2026-08-19T09:30:00Z"),
-                        totalMinutes = 585
-                    )
+        val vm = viewModel(
+            Result.success(
+                record(
+                    AttendanceStatus.COMPLETE,
+                    timeOut = Instant.parse("2026-08-19T09:30:00Z"),
+                    totalMinutes = 585
                 )
             )
         )
@@ -153,7 +152,7 @@ class DashboardViewModelTest {
 
     @Test
     fun `an open day shows time in done, working now, time out available`() = runTest {
-        val vm = DashboardViewModel(FakeAttendance(Result.success(record(AttendanceStatus.WORKING))))
+        val vm = viewModel(Result.success(record(AttendanceStatus.WORKING)))
         advanceUntilIdle()
 
         val state = vm.uiState.value
@@ -164,7 +163,7 @@ class DashboardViewModelTest {
 
     @Test
     fun `a day not started shows time in now and the rest locked`() = runTest {
-        val vm = DashboardViewModel(FakeAttendance(Result.success(null)))
+        val vm = viewModel(Result.success(null))
         advanceUntilIdle()
 
         val state = vm.uiState.value
@@ -177,7 +176,7 @@ class DashboardViewModelTest {
     fun `a failed load is reported rather than shown as an empty day`() = runTest {
         // "No record yet" and "we could not check" look identical, and a
         // worker acting on the wrong one times in twice.
-        val vm = DashboardViewModel(FakeAttendance(Result.failure(IOException("no signal"))))
+        val vm = viewModel(Result.failure(IOException("no signal")))
         advanceUntilIdle()
 
         assertEquals(AttendanceFailure.NoConnection, vm.uiState.value.failure)
@@ -185,9 +184,32 @@ class DashboardViewModelTest {
     }
 
     @Test
+    fun `loading the dashboard also warms the project cache`() = runTest {
+        // Found offline on a device: the project list was only ever
+        // cached by opening the picker while online. A worker who had
+        // never done that met an empty picker with no signal -- the flow
+        // dead at step 1, which is the failure cached_project exists to
+        // prevent. The dashboard is the one screen every worker sees, so
+        // it is where the cache gets warmed.
+        val projects = RecordingProjects()
+        val vm = DashboardViewModel(FakeAttendance(Result.success(null)), projects)
+        advanceUntilIdle()
+
+        assertEquals(1, projects.calls)
+    }
+
+    private class RecordingProjects : com.dacs.attendance.data.repo.ProjectRepository {
+        var calls = 0
+            private set
+
+        override suspend fun activeProjects() = Result.success(emptyList<com.dacs.attendance.domain.AttendanceProject>())
+            .also { calls++ }
+    }
+
+    @Test
     fun `refresh re-reads the record after a submission`() = runTest {
         val auth = FakeAttendance(Result.success(null))
-        val vm = DashboardViewModel(auth)
+        val vm = DashboardViewModel(auth, RecordingProjects())
         advanceUntilIdle()
 
         vm.refresh()

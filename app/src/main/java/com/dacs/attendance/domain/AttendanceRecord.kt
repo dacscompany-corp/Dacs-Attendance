@@ -39,7 +39,13 @@ data class AttendanceRecord(
     val timeOutAt: Instant?,
     val timeInProjectName: String?,
     val timeOutProjectName: String?,
-    val totalMinutes: Int?
+    val totalMinutes: Int?,
+    /**
+     * True while this day is still only on the phone. Shown to the
+     * worker as "will sync" so they know it is safe to walk away --
+     * NOT as a warning, because there is nothing for them to fix.
+     */
+    val pending: Boolean = false
 ) {
     /** What the worker may do next. The dashboard is built entirely from this. */
     val nextAction: TimeDirection?
