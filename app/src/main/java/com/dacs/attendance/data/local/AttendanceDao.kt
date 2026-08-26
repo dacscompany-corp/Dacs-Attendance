@@ -52,6 +52,12 @@ interface CachedRecordDao {
 
     @Query("DELETE FROM cached_record WHERE workDate = :workDate")
     suspend fun clear(workDate: String)
+
+    // workDate is an ISO yyyy-MM-dd string, so lexical BETWEEN is also
+    // chronological. That is the reason it is stored as text rather than
+    // an epoch day.
+    @Query("SELECT * FROM cached_record WHERE workDate BETWEEN :from AND :to ORDER BY workDate DESC")
+    suspend fun between(from: String, to: String): List<CachedRecordEntity>
 }
 
 @Dao

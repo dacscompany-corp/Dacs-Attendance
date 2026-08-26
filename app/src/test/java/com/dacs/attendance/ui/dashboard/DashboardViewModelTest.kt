@@ -39,6 +39,9 @@ class DashboardViewModelTest {
 
         override suspend fun submit(request: SubmissionRequest) = error("not used here")
 
+        override suspend fun history(fromWorkDate: String, toWorkDate: String) =
+            Result.success(emptyList<AttendanceRecord>())
+
         override suspend fun today(): Result<AttendanceRecord?> {
             loads++
             return result

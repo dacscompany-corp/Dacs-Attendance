@@ -66,6 +66,9 @@ class TimeFlowViewModelTest {
             return if (results.size > 1) results.removeAt(0) else results.first()
         }
 
+        override suspend fun history(fromWorkDate: String, toWorkDate: String) =
+            Result.success(emptyList<AttendanceRecord>())
+
         override suspend fun today(): Result<AttendanceRecord?> = Result.success(null)
     }
 

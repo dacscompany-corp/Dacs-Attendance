@@ -39,6 +39,16 @@ interface AttendanceRepository {
 
     /** Today's record for this worker, or null if they have not timed in. */
     suspend fun today(): Result<AttendanceRecord?>
+
+    /**
+     * Every record between two work dates, inclusive.
+     *
+     * Serves the mirror when the server cannot be reached: History is one
+     * of the two screens the spec names as having to render with no
+     * signal, because a worker checking whether last Tuesday was recorded
+     * is often standing somewhere without bars.
+     */
+    suspend fun history(fromWorkDate: String, toWorkDate: String): Result<List<AttendanceRecord>>
 }
 
 interface ProjectRepository {

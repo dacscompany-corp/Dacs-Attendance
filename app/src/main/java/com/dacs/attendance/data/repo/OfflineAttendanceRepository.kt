@@ -126,6 +126,34 @@ class OfflineAttendanceRepository @Inject constructor(
         }
     }
 
+    /**
+     * History, mirrored as it is fetched.
+     *
+     * Every successful fetch writes the days into cached_record, so the
+     * next time the worker opens History with no signal the same list is
+     * still there. That is what the mirror is FOR -- it is not a cache of
+     * convenience, it is the offline copy of the worker's own record.
+     */
+    override suspend fun history(
+        fromWorkDate: String,
+        toWorkDate: String
+    ): Result<List<AttendanceRecord>> {
+        val fresh = remote.history(fromWorkDate, toWorkDate)
+
+        fresh.getOrNull()?.let { records ->
+            records.forEach { database.cachedRecords().upsert(it.toEntity(pending = false)) }
+            return Result.success(records)
+        }
+
+        val cached = database.cachedRecords()
+            .between(fromWorkDate, toWorkDate)
+            .map { it.toDomain() }
+        // An empty mirror and an unreachable server are different answers:
+        // returning success(emptyList) here would tell a worker they never
+        // worked this week.
+        return if (cached.isNotEmpty()) Result.success(cached) else fresh
+    }
+
     private suspend fun mirrorAfter(
         request: SubmissionRequest,
         workDate: String,

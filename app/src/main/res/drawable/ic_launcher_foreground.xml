@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The logo, inset so it survives the adaptive-icon mask. Android crops
+     an adaptive foreground to the inner ~66%, so anything drawn edge to
+     edge loses its corners on a circular-mask launcher. -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:insetLeft="26%"
+    android:insetTop="26%"
+    android:insetRight="26%"
+    android:insetBottom="26%">
+    <bitmap android:src="@drawable/dacs_logo" android:gravity="center" />
+</inset>

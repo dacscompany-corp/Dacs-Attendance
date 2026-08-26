@@ -1,5 +1,6 @@
 package com.dacs.attendance.ui.login
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -7,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
@@ -16,6 +18,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -61,9 +64,12 @@ fun LoginScreen(
     ) {
         Spacer(Modifier.padding(top = 24.dp))
 
-        // TODO(B2 follow-up): the design puts the DACS logo above this
-        // block. The asset is not bundled yet -- see the B1 note about
-        // the placeholder launcher icon.
+        Image(
+            painter = painterResource(R.drawable.dacs_logo),
+            contentDescription = null,   // decorative: the title says it
+            modifier = Modifier.size(72.dp)
+        )
+
         Text(
             text = stringResource(R.string.login_title),
             style = MaterialTheme.typography.headlineMedium

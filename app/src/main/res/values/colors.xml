@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The launcher icon's ground. Same green as "arriving" in the app,
+         so the icon a worker taps at 07:45 is the colour of timing in. -->
+    <color name="dacs_green">#1A5C3A</color>
+</resources>

@@ -1,6 +1,7 @@
 package com.dacs.attendance.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -26,7 +27,11 @@ import com.dacs.attendance.domain.WorkerProfile
 import com.dacs.attendance.ui.components.BilingualText
 import com.dacs.attendance.ui.components.FailureNotice
 import com.dacs.attendance.ui.components.PrimaryActionButton
+import com.dacs.attendance.ui.components.WorkerBottomNav
+import com.dacs.attendance.ui.components.WorkerTab
 import com.dacs.attendance.ui.dashboard.DashboardScreen
+import com.dacs.attendance.ui.history.HistoryScreen
+import com.dacs.attendance.ui.profile.ProfileScreen
 import com.dacs.attendance.ui.login.LoginScreen
 import com.dacs.attendance.ui.terms.TermsScreen
 import com.dacs.attendance.ui.timeflow.TimeFlowScreen
@@ -72,6 +77,7 @@ fun AttendanceRoot(
 
         is AppState.SignedIn -> SignedInArea(
             worker = current.worker,
+            onSignOut = viewModel::onSignOut,
             modifier = modifier
         )
     }
@@ -139,22 +145,22 @@ private fun GateUnavailableScreen(
 @Composable
 private fun SignedInArea(
     worker: WorkerProfile,
+    onSignOut: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var flow by rememberSaveable { mutableStateOf<TimeDirection?>(null) }
+    var tab by rememberSaveable { mutableStateOf(WorkerTab.HOME) }
     // Bumped after a submission so the dashboard re-reads today's record
     // instead of showing the state from before the worker timed in.
     var reloadKey by rememberSaveable { mutableStateOf(0) }
 
-    when (val direction = flow) {
-        null -> DashboardScreen(
-            worker = worker,
-            onStartFlow = { flow = it },
-            refreshKey = reloadKey,
-            modifier = modifier
-        )
-
-        else -> TimeFlowScreen(
+    val direction = flow
+    if (direction != null) {
+        // The flow is MODAL: no bottom bar while recording. A worker
+        // halfway through a Time In has one way forward and one way
+        // back, and offering a tab to wander off to would lose the photo
+        // they already took.
+        TimeFlowScreen(
             direction = direction,
             onFinished = {
                 flow = null
@@ -163,5 +169,21 @@ private fun SignedInArea(
             onCancelled = { flow = null },
             modifier = modifier
         )
+        return
+    }
+
+    Column(modifier = modifier.fillMaxSize()) {
+        Box(Modifier.weight(1f)) {
+            when (tab) {
+                WorkerTab.HOME -> DashboardScreen(
+                    worker = worker,
+                    onStartFlow = { flow = it },
+                    refreshKey = reloadKey
+                )
+                WorkerTab.HISTORY -> HistoryScreen()
+                WorkerTab.PROFILE -> ProfileScreen(worker = worker, onSignOut = onSignOut)
+            }
+        }
+        WorkerBottomNav(selected = tab, onSelect = { tab = it })
     }
 }

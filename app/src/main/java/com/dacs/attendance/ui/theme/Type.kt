@@ -1,10 +1,14 @@
 package com.dacs.attendance.ui.theme
 
 import androidx.compose.material3.Typography
+import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import com.dacs.attendance.R
 
 /**
  * The design calls for three families:
@@ -12,16 +16,45 @@ import androidx.compose.ui.unit.sp
  *   Barlow           -> body and buttons
  *   IBM Plex Mono    -> times, totals, worker ID, step counters
  *
- * They are mapped to platform families for now. When the real .ttf files
- * are bundled into res/font/, swap ONLY these three declarations and
- * every call site follows -- nothing else references a family directly.
+ * BUNDLED, never fetched. The app has to render with no signal, which
+ * is the whole reason it is native. Licences ship in assets/licenses/
+ * (all three are SIL OFL 1.1, which requires the licence to travel with
+ * the fonts).
  *
- * The fonts must be BUNDLED, never fetched. The app has to render with
- * no signal, which is the whole reason it is native.
+ * Playfair Display is the VARIABLE font -- Google no longer publishes
+ * static cuts of it. Compose applies the weight axis on API 26+; on
+ * 24-25 it renders the regular instance, so headings are lighter there
+ * rather than missing. That is a deliberate trade for keeping minSdk 24,
+ * and it degrades in the one direction that stays legible.
  */
-val DisplayFamily: FontFamily = FontFamily.Serif      // -> Playfair Display
-val BodyFamily: FontFamily    = FontFamily.SansSerif  // -> Barlow
-val MonoFamily: FontFamily    = FontFamily.Monospace  // -> IBM Plex Mono
+@OptIn(ExperimentalTextApi::class)
+val DisplayFamily: FontFamily = FontFamily(
+    Font(R.font.playfair_display, FontWeight.Normal),
+    Font(
+        R.font.playfair_display,
+        FontWeight.SemiBold,
+        variationSettings = FontVariation.Settings(FontVariation.weight(600))
+    ),
+    Font(
+        R.font.playfair_display,
+        FontWeight.Bold,
+        variationSettings = FontVariation.Settings(FontVariation.weight(700))
+    )
+)
+
+val BodyFamily: FontFamily = FontFamily(
+    Font(R.font.barlow_regular, FontWeight.Normal),
+    Font(R.font.barlow_semibold, FontWeight.SemiBold),
+    Font(R.font.barlow_bold, FontWeight.Bold),
+    // The action buttons are ExtraBold: they are read at arm's length,
+    // outdoors, by someone who is not looking closely.
+    Font(R.font.barlow_extrabold, FontWeight.ExtraBold)
+)
+
+val MonoFamily: FontFamily = FontFamily(
+    Font(R.font.ibm_plex_mono_regular, FontWeight.Normal),
+    Font(R.font.ibm_plex_mono_bold, FontWeight.Bold)
+)
 
 val AttendanceTypography = Typography(
     // Confirmation headline ("Time In recorded")

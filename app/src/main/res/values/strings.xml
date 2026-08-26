@@ -133,4 +133,32 @@
     <string name="att_no_owner_tl">Hindi pa naka-link ang account mo. Tawagan ang opisina.</string>
     <string name="att_session_expired">Please log in again.</string>
     <string name="att_session_expired_tl">Mag-log in ulit.</string>
+    <!-- History (screen 10) -->
+    <string name="history_title">My attendance</string>
+    <string name="history_title_tl">Talaan ng aking pasok</string>
+    <string name="history_this_week">This week</string>
+    <string name="history_this_month">This month</string>
+    <!-- "1 days worked" reads as broken English to anyone, in any
+         language. Plurals, not string concatenation. -->
+    <plurals name="history_summary">
+        <item quantity="one">%1$d day worked · %2$s total</item>
+        <item quantity="other">%1$d days worked · %2$s total</item>
+    </plurals>
+    <string name="history_no_record_tl">Walang naitalang pasok</string>
+    <string name="history_in">IN</string>
+    <string name="history_out">OUT</string>
+    <string name="history_total">Total hours</string>
+    <string name="status_complete">Complete</string>
+    <string name="status_working">Working</string>
+    <string name="status_abandoned">Not closed</string>
+    <string name="status_no_record">No record</string>
+
+    <!-- Profile (screen 11) -->
+    <string name="profile_active">Active account</string>
+    <string name="profile_position">Position</string>
+    <string name="profile_worker_id">Worker ID</string>
+    <string name="profile_terms_sub">Basahin ang tinanggap mong Terms</string>
+    <string name="profile_password_note">Para palitan ang password, tawagan ang opisina.</string>
+    <string name="action_close">CLOSE</string>
+    <string name="action_close_tl">Isara</string>
 </resources>

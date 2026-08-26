@@ -104,6 +104,24 @@ class SupabaseAttendanceRepository @Inject constructor(
             ).decodeAs<AttendanceRecordRow>().toDomain()
         }
 
+    override suspend fun history(
+        fromWorkDate: String,
+        toWorkDate: String
+    ): Result<List<AttendanceRecord>> =
+        runCatchingExceptCancellation {
+            client.postgrest
+                .from("attendance_records")
+                .select(Columns.raw(AttendanceRecordRow.COLUMNS)) {
+                    filter {
+                        gte("work_date", fromWorkDate)
+                        lte("work_date", toWorkDate)
+                    }
+                    order("work_date", Order.DESCENDING)
+                }
+                .decodeList<AttendanceRecordRow>()
+                .map { it.toDomain() }
+        }
+
     /**
      * Today's record, keyed on the MANILA date -- the same key the RPC
      * derives. Using the device's date would ask for the wrong day on a
