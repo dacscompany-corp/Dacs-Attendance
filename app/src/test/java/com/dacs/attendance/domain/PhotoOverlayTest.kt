@@ -54,4 +54,38 @@ class PhotoOverlayTest {
         assertTrue(caption, caption.contains("…"))
         assertTrue(caption, caption.contains("5:30 PM"))
     }
+
+    @Test
+    fun `the split lines rejoin into exactly the burned-in caption`() {
+        // The preview shows two lines; the photo burns one. They must be
+        // the same text, or the preview stops being a preview.
+        val at = Instant.parse("2026-08-19T09:30:00Z")
+        val (name, stamp) = photoOverlayCaptionLines("ABC Building Project", at)
+
+        assertEquals(photoOverlayCaption("ABC Building Project", at), "$name · $stamp")
+    }
+
+    @Test
+    fun `the timestamp line carries both the date and the time`() {
+        // Found on the emulator: the joined caption did not fit across a
+        // phone and it was the TIME that got ellipsised away -- the one
+        // thing the preview exists to show.
+        val (_, stamp) = photoOverlayCaptionLines(
+            projectName = "A Very Long Construction Project Name That Will Not Fit",
+            capturedAt = Instant.parse("2026-08-19T09:30:00Z")
+        )
+
+        assertEquals("19 Aug 2026 · 5:30 PM", stamp)
+    }
+
+    @Test
+    fun `only the name line is ever truncated`() {
+        val (name, stamp) = photoOverlayCaptionLines(
+            projectName = "A Very Long Construction Project Name That Will Not Fit",
+            capturedAt = Instant.parse("2026-08-19T09:30:00Z")
+        )
+
+        assertTrue(name, name.endsWith("…"))
+        assertTrue(stamp, !stamp.contains("…"))
+    }
 }

@@ -50,7 +50,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.dacs.attendance.R
-import com.dacs.attendance.domain.photoOverlayCaption
+import com.dacs.attendance.domain.photoOverlayCaptionLines
 import com.dacs.attendance.ui.theme.BorderDefault
 import com.dacs.attendance.ui.theme.Dimens
 import com.dacs.attendance.ui.theme.Green
@@ -152,17 +152,8 @@ fun CameraCapture(
                 )
 
                 projectName?.let { project ->
-                    Text(
-                        text = photoOverlayCaption(project, now),
-                        fontFamily = MonoFamily,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.85f),
-                        maxLines = 1,
-                        // One line, ellipsised rather than clipped. The
-                        // burned-in copy shrinks to fit instead (see
-                        // fitTextSize); on a narrow preview an honest "…"
-                        // beats a caption sliced mid-character.
-                        overflow = TextOverflow.Ellipsis,
+                    val (name, stamp) = photoOverlayCaptionLines(project, now)
+                    Column(
                         modifier = Modifier
                             .align(Alignment.BottomStart)
                             .fillMaxWidth()
@@ -175,8 +166,28 @@ fun CameraCapture(
                                     listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f))
                                 )
                             )
-                            .padding(horizontal = 20.dp, vertical = 16.dp)
-                    )
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        // Two lines, because the joined caption does not
+                        // fit across a phone and it was the TIME that got
+                        // cut. The name may ellipsise; the stamp never.
+                        Text(
+                            text = name,
+                            fontFamily = MonoFamily,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.85f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = stamp,
+                            fontFamily = MonoFamily,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.85f),
+                            maxLines = 1
+                        )
+                    }
                 }
             } else {
                 // Not a dead end: the launcher above already asked, and

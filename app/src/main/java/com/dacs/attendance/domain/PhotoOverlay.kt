@@ -23,6 +23,22 @@ private const val MAX_PROJECT_CHARS = 32
  * dated the 19th -- exactly the discrepancy that makes evidence useless.
  */
 fun photoOverlayCaption(projectName: String, capturedAt: Instant): String {
+    val (project, stamp) = photoOverlayCaptionLines(projectName, capturedAt)
+    return "$project · $stamp"
+}
+
+/**
+ * The same caption, split where it is safe to break: the project name,
+ * then the timestamp.
+ *
+ * The on-screen preview uses this because the joined line does not fit
+ * across a phone at a readable size -- and what got cut off was the END,
+ * which is the time. A preview whose whole job is to show the stamp
+ * before the shutter must never be the thing that hides it.
+ *
+ * The photo itself still burns ONE line, shrunk by [fitTextSize].
+ */
+fun photoOverlayCaptionLines(projectName: String, capturedAt: Instant): Pair<String, String> {
     val local = capturedAt.atZone(AttendanceZone)
     val project = if (projectName.length <= MAX_PROJECT_CHARS) {
         projectName
@@ -32,5 +48,5 @@ fun photoOverlayCaption(projectName: String, capturedAt: Instant): String {
         projectName.take(MAX_PROJECT_CHARS).trimEnd() + "…"
     }
 
-    return "$project · ${local.format(OverlayDate)} · ${local.format(OverlayTime)}"
+    return project to "${local.format(OverlayDate)} · ${local.format(OverlayTime)}"
 }
