@@ -17,6 +17,13 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "pending_submission")
 data class PendingSubmissionEntity(
     @PrimaryKey val eventId: String,
+    /**
+     * WHOSE submission this is. Phones are shared on a site, and the RPC
+     * files the record against auth.uid() -- so a row uploaded under a
+     * different session would attribute one worker's attendance to
+     * another. Never send a row that is not the signed-in worker's.
+     */
+    val workerId: String = "",
     /** "IN" or "OUT" -- stored as text so the table is readable in a dump. */
     val direction: String,
     val projectId: Long,
@@ -45,9 +52,12 @@ data class PendingSubmissionEntity(
  * Without this the dashboard is blank with no signal, which is when the
  * worker most needs to know whether they have timed in.
  */
-@Entity(tableName = "cached_record")
+@Entity(tableName = "cached_record", primaryKeys = ["workerId", "workDate"])
 data class CachedRecordEntity(
-    @PrimaryKey val workDate: String,
+    /** The mirror is per worker: the next person to sign in on this
+     *  phone must not see the last one's attendance. */
+    val workerId: String = "",
+    val workDate: String,
     val id: String?,
     val status: String,
     val timeInAt: Long?,
@@ -65,8 +75,11 @@ data class CachedRecordEntity(
  * Without it the picker is empty offline and the entire flow is dead at
  * step 1 -- the spec calls this out explicitly.
  */
-@Entity(tableName = "cached_project")
+@Entity(tableName = "cached_project", primaryKeys = ["workerId", "id"])
 data class CachedProjectEntity(
-    @PrimaryKey val id: Long,
+    /** Projects belong to a worker's OWNER, so they are cached per
+     *  worker too -- a different worker may have a different owner. */
+    val workerId: String = "",
+    val id: Long,
     val name: String
 )

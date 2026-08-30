@@ -16,6 +16,7 @@ import com.dacs.attendance.domain.QueueOutcome
 import com.dacs.attendance.domain.QueuedSubmission
 import com.dacs.attendance.domain.TimeDirection
 import com.dacs.attendance.domain.nextToSend
+import io.github.jan.supabase.auth.auth
 import com.dacs.attendance.domain.outcomeFor
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -43,29 +44,35 @@ class SubmissionWorker @AssistedInject constructor(
     private val database: AttendanceDatabase,
     private val remote: SupabaseAttendanceRepository,
     private val photos: PhotoStore,
-    private val scheduler: SubmissionScheduler
+    private val scheduler: SubmissionScheduler,
+    private val client: io.github.jan.supabase.SupabaseClient
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
-        val queue = database.pendingSubmissions().sendable()
+        // Whose session is this? With none, nothing may be sent: the RPC
+        // would file the record against whoever signs in next.
+        val workerId = client.auth.currentUserOrNull()?.id.orEmpty()
+        if (workerId.isEmpty()) return Result.success()
+
+        val queue = database.pendingSubmissions().sendable(workerId)
         if (queue.isEmpty()) return Result.success()
 
-        val next = nextToSend(queue.map { it.toQueued() })
+        val next = nextToSend(queue.map { it.toQueued() }, workerId)
             ?: return Result.success()
         val row = queue.first { it.eventId == next.eventId }
 
-        val outcome = send(row)
+        val outcome = send(row, workerId)
 
         // Anything still queued gets another run. Chaining rather than
         // looping here keeps each attempt inside WorkManager's own
         // backoff and constraints.
-        if (database.pendingSubmissions().sendable().isNotEmpty()) {
+        if (database.pendingSubmissions().sendable(workerId).isNotEmpty()) {
             scheduler.enqueue(row.eventId + "-next")
         }
         return outcome
     }
 
-    private suspend fun send(row: PendingSubmissionEntity): Result {
+    private suspend fun send(row: PendingSubmissionEntity, workerId: String): Result {
         val photo = File(row.photoLocalPath)
         if (!photo.exists()) {
             // The file is gone (cleared storage, restored backup). The
@@ -96,7 +103,7 @@ class SubmissionWorker @AssistedInject constructor(
             onSuccess = { record ->
                 // The server's row replaces the optimistic mirror --
                 // including its total_minutes, which is authoritative.
-                database.cachedRecords().upsert(record.toEntity(pending = false))
+                database.cachedRecords().upsert(record.toEntity(workerId, pending = false))
                 database.pendingSubmissions().deleteById(row.eventId)
                 // Only now is the photo safe to delete.
                 photos.discard(row.photoLocalPath)
@@ -118,7 +125,7 @@ class SubmissionWorker @AssistedInject constructor(
                         // forever against a record that already exists.
                         Log.i(TAG, "server already has this day; reconciling ${row.eventId}")
                         remote.today().getOrNull()?.let {
-                            database.cachedRecords().upsert(it.toEntity(pending = false))
+                            database.cachedRecords().upsert(it.toEntity(workerId, pending = false))
                         }
                         database.pendingSubmissions().deleteById(row.eventId)
                         photos.discard(row.photoLocalPath)
@@ -141,5 +148,6 @@ class SubmissionWorker @AssistedInject constructor(
 private fun PendingSubmissionEntity.toQueued() = QueuedSubmission(
     eventId = eventId,
     direction = TimeDirection.valueOf(direction),
-    createdAt = Instant.ofEpochMilli(createdAt)
+    createdAt = Instant.ofEpochMilli(createdAt),
+    workerId = workerId
 )

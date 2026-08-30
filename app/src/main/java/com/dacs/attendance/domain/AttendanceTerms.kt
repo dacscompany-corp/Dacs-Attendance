@@ -28,7 +28,7 @@ data class TermsClause(
 object AttendanceTerms {
 
     /** Bump on ANY edit to the clauses below. */
-    const val VERSION = "2026-08-v1"
+    const val VERSION = "2026-08-v2"
 
     const val TITLE = "DAC's Attendance -- Terms & Conditions"
 
@@ -63,10 +63,17 @@ object AttendanceTerms {
         ),
         TermsClause(
             heading = "Who can see your records.",
+            // "payroll purposes" was removed on the owner's confirmation:
+            // DAC's labour is pakyaw, capped by labor_contracts, and these
+            // hours are NOT what the pay is computed from. Saying they
+            // were would have been a false statement in binding text --
+            // and the sentence a worker would quote back in a dispute.
             english = "Your attendance records, photos and location may be viewed by " +
-                "the Admin and the Owner for monitoring and payroll purposes.",
+                "the Admin and the Owner to check attendance and site activity. " +
+                "These records are not used to compute your pay.",
             tagalog = "Ang iyong mga record, litrato at lokasyon ay maaaring makita ng " +
-                "Admin at ng May-ari para sa pagsubaybay at sa sahod."
+                "Admin at ng May-ari para tingnan ang pasok at ang trabaho sa site. " +
+                "Hindi ito ang batayan ng sahod mo."
         )
     )
 

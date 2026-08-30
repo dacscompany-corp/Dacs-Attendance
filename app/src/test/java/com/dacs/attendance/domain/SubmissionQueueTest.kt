@@ -14,11 +14,19 @@ import org.junit.Test
  */
 class SubmissionQueueTest {
 
+    private val me = "worker-a"
+
     private fun pending(
         eventId: String,
         direction: TimeDirection,
-        createdAt: Instant
-    ) = QueuedSubmission(eventId = eventId, direction = direction, createdAt = createdAt)
+        createdAt: Instant,
+        workerId: String = me
+    ) = QueuedSubmission(
+        eventId = eventId,
+        direction = direction,
+        createdAt = createdAt,
+        workerId = workerId
+    )
 
     @Test
     fun `the queue drains oldest first`() {
@@ -27,7 +35,7 @@ class SubmissionQueueTest {
         val out = pending("b", TimeDirection.OUT, Instant.parse("2026-08-19T09:30:00Z"))
         val timeIn = pending("a", TimeDirection.IN, Instant.parse("2026-08-18T23:45:00Z"))
 
-        assertEquals(timeIn, nextToSend(listOf(out, timeIn)))
+        assertEquals(timeIn, nextToSend(listOf(out, timeIn), me))
     }
 
     @Test
@@ -37,12 +45,12 @@ class SubmissionQueueTest {
         val out = pending("b", TimeDirection.OUT, Instant.parse("2026-08-18T23:00:00Z"))
         val timeIn = pending("a", TimeDirection.IN, Instant.parse("2026-08-18T23:45:00Z"))
 
-        assertEquals(timeIn, nextToSend(listOf(out, timeIn)))
+        assertEquals(timeIn, nextToSend(listOf(out, timeIn), me))
     }
 
     @Test
     fun `an empty queue has nothing to send`() {
-        assertNull(nextToSend(emptyList()))
+        assertNull(nextToSend(emptyList(), me))
     }
 
     @Test
@@ -50,7 +58,40 @@ class SubmissionQueueTest {
         // Its Time In already reached the server on an earlier drain.
         val out = pending("b", TimeDirection.OUT, Instant.parse("2026-08-19T09:30:00Z"))
 
-        assertEquals(out, nextToSend(listOf(out)))
+        assertEquals(out, nextToSend(listOf(out), me))
+    }
+
+    @Test
+    fun `another worker's queued submission is never sent under my session`() {
+        // Shared and borrowed phones are normal on a site. The RPC files
+        // the record against auth.uid(), so sending a row queued by
+        // someone else would record THEIR attendance as MINE -- a wrong
+        // record about a real person, which is the one failure this
+        // system cannot tolerate.
+        val theirs = pending("b", TimeDirection.IN,
+            Instant.parse("2026-08-18T23:00:00Z"), workerId = "worker-b")
+
+        assertNull(nextToSend(listOf(theirs), me))
+    }
+
+    @Test
+    fun `my own submission is still sent when someone else's is queued too`() {
+        val theirs = pending("b", TimeDirection.IN,
+            Instant.parse("2026-08-18T23:00:00Z"), workerId = "worker-b")
+        val mine = pending("a", TimeDirection.IN, Instant.parse("2026-08-19T00:00:00Z"))
+
+        assertEquals(mine, nextToSend(listOf(theirs, mine), me))
+    }
+
+    @Test
+    fun `a row with no owner is not sent to anyone`() {
+        // Rows migrated from before submissions carried a worker id.
+        // Losing an upload is bad; attributing it to the wrong worker is
+        // worse and cannot be detected afterwards.
+        val orphan = pending("c", TimeDirection.IN,
+            Instant.parse("2026-08-19T00:00:00Z"), workerId = "")
+
+        assertNull(nextToSend(listOf(orphan), me))
     }
 
     // ── What to do when the server refuses ──────────────────────────

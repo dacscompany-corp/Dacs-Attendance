@@ -15,8 +15,13 @@ interface PendingSubmissionDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(submission: PendingSubmissionEntity)
 
-    @Query("SELECT * FROM pending_submission WHERE failedPermanently = 0 ORDER BY createdAt ASC")
-    suspend fun sendable(): List<PendingSubmissionEntity>
+    // Scoped to ONE worker. An unscoped read is how another worker's
+    // queued day would end up uploaded under this session.
+    @Query(
+        "SELECT * FROM pending_submission " +
+            "WHERE failedPermanently = 0 AND workerId = :workerId ORDER BY createdAt ASC"
+    )
+    suspend fun sendable(workerId: String): List<PendingSubmissionEntity>
 
     @Query("SELECT * FROM pending_submission WHERE eventId = :eventId")
     suspend fun byId(eventId: String): PendingSubmissionEntity?
@@ -44,33 +49,36 @@ interface CachedRecordDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(record: CachedRecordEntity)
 
-    @Query("SELECT * FROM cached_record WHERE workDate = :workDate")
-    suspend fun forDate(workDate: String): CachedRecordEntity?
+    @Query("SELECT * FROM cached_record WHERE workerId = :workerId AND workDate = :workDate")
+    suspend fun forDate(workerId: String, workDate: String): CachedRecordEntity?
 
-    @Query("SELECT * FROM cached_record WHERE workDate = :workDate")
-    fun observe(workDate: String): Flow<CachedRecordEntity?>
+    @Query("SELECT * FROM cached_record WHERE workerId = :workerId AND workDate = :workDate")
+    fun observe(workerId: String, workDate: String): Flow<CachedRecordEntity?>
 
-    @Query("DELETE FROM cached_record WHERE workDate = :workDate")
-    suspend fun clear(workDate: String)
+    @Query("DELETE FROM cached_record WHERE workerId = :workerId AND workDate = :workDate")
+    suspend fun clear(workerId: String, workDate: String)
 
     // workDate is an ISO yyyy-MM-dd string, so lexical BETWEEN is also
     // chronological. That is the reason it is stored as text rather than
     // an epoch day.
-    @Query("SELECT * FROM cached_record WHERE workDate BETWEEN :from AND :to ORDER BY workDate DESC")
-    suspend fun between(from: String, to: String): List<CachedRecordEntity>
+    @Query(
+        "SELECT * FROM cached_record WHERE workerId = :workerId " +
+            "AND workDate BETWEEN :from AND :to ORDER BY workDate DESC"
+    )
+    suspend fun between(workerId: String, from: String, to: String): List<CachedRecordEntity>
 }
 
 @Dao
 interface CachedProjectDao {
 
-    @Query("SELECT * FROM cached_project ORDER BY name ASC")
-    suspend fun all(): List<CachedProjectEntity>
+    @Query("SELECT * FROM cached_project WHERE workerId = :workerId ORDER BY name ASC")
+    suspend fun all(workerId: String): List<CachedProjectEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(projects: List<CachedProjectEntity>)
 
-    @Query("DELETE FROM cached_project")
-    suspend fun clear()
+    @Query("DELETE FROM cached_project WHERE workerId = :workerId")
+    suspend fun clear(workerId: String)
 
     /**
      * Replaces the cached list in one transaction. Done as clear+insert
@@ -78,8 +86,8 @@ interface CachedProjectDao {
      * disappears from the picker instead of lingering forever.
      */
     @androidx.room.Transaction
-    suspend fun replaceAll(projects: List<CachedProjectEntity>) {
-        clear()
+    suspend fun replaceAll(workerId: String, projects: List<CachedProjectEntity>) {
+        clear(workerId)
         upsertAll(projects)
     }
 }
@@ -90,7 +98,7 @@ interface CachedProjectDao {
         CachedRecordEntity::class,
         CachedProjectEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = true
 )
 abstract class AttendanceDatabase : RoomDatabase() {

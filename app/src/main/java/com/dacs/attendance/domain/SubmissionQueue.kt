@@ -6,7 +6,9 @@ import java.time.Instant
 data class QueuedSubmission(
     val eventId: String,
     val direction: TimeDirection,
-    val createdAt: Instant
+    val createdAt: Instant,
+    /** Who queued it. Empty for rows migrated from before this existed. */
+    val workerId: String
 )
 
 /**
@@ -18,9 +20,19 @@ data class QueuedSubmission(
  *  2. An unsent Time In ALWAYS goes before a Time Out. Clock skew and
  *     retries can reorder created_at, and a Time Out that arrives first
  *     is refused with NOT_TIMED_IN -- costing the worker their day.
+ *
+ * And only ever [currentWorkerId]'s own rows. Phones get shared and
+ * borrowed on a site; the RPC files each record against auth.uid(), so
+ * uploading someone else's queued row under this session would record
+ * THEIR attendance as THIS worker's -- a wrong record about a real
+ * person, undetectable afterwards. A row with no owner (migrated from
+ * before submissions carried one) belongs to nobody and is never sent.
  */
-fun nextToSend(queue: List<QueuedSubmission>): QueuedSubmission? =
-    queue.minWithOrNull(
+fun nextToSend(
+    queue: List<QueuedSubmission>,
+    currentWorkerId: String
+): QueuedSubmission? =
+    queue.filter { it.workerId.isNotEmpty() && it.workerId == currentWorkerId }.minWithOrNull(
         compareBy<QueuedSubmission> { if (it.direction == TimeDirection.IN) 0 else 1 }
             .thenBy { it.createdAt }
     )

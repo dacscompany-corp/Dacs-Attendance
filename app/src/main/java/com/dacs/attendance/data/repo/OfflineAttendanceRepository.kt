@@ -14,6 +14,8 @@ import com.dacs.attendance.domain.TodayDecision
 import com.dacs.attendance.domain.reconcileToday
 import com.dacs.attendance.domain.WorkDate
 import com.dacs.attendance.work.SubmissionScheduler
+import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.auth.auth
 import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -34,8 +36,18 @@ class OfflineAttendanceRepository @Inject constructor(
     private val photos: PhotoStore,
     private val scheduler: SubmissionScheduler,
     private val remote: SupabaseAttendanceRepository,
-    private val connectivity: Connectivity
+    private val connectivity: Connectivity,
+    private val client: SupabaseClient
 ) : AttendanceRepository {
+
+    /**
+     * The signed-in worker, and the scope for EVERY local read and write.
+     *
+     * Empty when there is no session. That is deliberately useless as a
+     * key: with no session we must not read or write anyone's mirror,
+     * because we cannot know whose it would be.
+     */
+    private fun currentWorkerId(): String = client.auth.currentUserOrNull()?.id.orEmpty()
 
     /**
      * Returns as soon as the submission is durably on disk. The record
@@ -45,8 +57,9 @@ class OfflineAttendanceRepository @Inject constructor(
      */
     override suspend fun submit(request: SubmissionRequest): Result<AttendanceRecord> =
         runCatchingExceptCancellation {
+            val workerId = currentWorkerId()
             val workDate = WorkDate.of(request.capturedAt).toString()
-            val projectName = database.cachedProjects().all()
+            val projectName = database.cachedProjects().all(workerId)
                 .firstOrNull { it.id == request.projectId }?.name
                 ?: ""
 
@@ -63,6 +76,7 @@ class OfflineAttendanceRepository @Inject constructor(
             database.pendingSubmissions().insert(
                 PendingSubmissionEntity(
                     eventId = request.eventId,
+                    workerId = workerId,
                     direction = request.direction.name,
                     projectId = request.projectId,
                     projectName = projectName,
@@ -81,7 +95,7 @@ class OfflineAttendanceRepository @Inject constructor(
                 )
             )
 
-            val mirror = mirrorAfter(request, workDate, projectName)
+            val mirror = mirrorAfter(workerId, request, workDate, projectName)
             database.cachedRecords().upsert(mirror)
 
             // KEEP semantics inside: enqueuing twice for one event id is
@@ -98,9 +112,10 @@ class OfflineAttendanceRepository @Inject constructor(
      * be "nothing", which is a lie the worker acts on.
      */
     override suspend fun today(): Result<AttendanceRecord?> {
+        val workerId = currentWorkerId()
         val workDate = WorkDate.today().toString()
-        val cached = database.cachedRecords().forDate(workDate)
-        val hasPending = database.pendingSubmissions().sendable().any {
+        val cached = database.cachedRecords().forDate(workerId, workDate)
+        val hasPending = database.pendingSubmissions().sendable(workerId).any {
             WorkDate.of(Instant.ofEpochMilli(it.capturedAt)).toString() == workDate
         }
         val fresh = remote.today()
@@ -110,13 +125,13 @@ class OfflineAttendanceRepository @Inject constructor(
                 // Only write back what the SERVER said; a mirror rewritten
                 // from itself just churns the disk.
                 if (fresh.isSuccess && fresh.getOrNull() != null) {
-                    database.cachedRecords().upsert(decision.record.toEntity(hasPending))
+                    database.cachedRecords().upsert(decision.record.toEntity(workerId, hasPending))
                 }
                 Result.success(decision.record.copy(pending = hasPending))
             }
 
             TodayDecision.Clear -> {
-                database.cachedRecords().clear(workDate)
+                database.cachedRecords().clear(workerId, workDate)
                 Result.success(null)
             }
 
@@ -138,15 +153,18 @@ class OfflineAttendanceRepository @Inject constructor(
         fromWorkDate: String,
         toWorkDate: String
     ): Result<List<AttendanceRecord>> {
+        val workerId = currentWorkerId()
         val fresh = remote.history(fromWorkDate, toWorkDate)
 
         fresh.getOrNull()?.let { records ->
-            records.forEach { database.cachedRecords().upsert(it.toEntity(pending = false)) }
+            records.forEach {
+                database.cachedRecords().upsert(it.toEntity(workerId, pending = false))
+            }
             return Result.success(records)
         }
 
         val cached = database.cachedRecords()
-            .between(fromWorkDate, toWorkDate)
+            .between(workerId, fromWorkDate, toWorkDate)
             .map { it.toDomain() }
         // An empty mirror and an unreachable server are different answers:
         // returning success(emptyList) here would tell a worker they never
@@ -155,13 +173,15 @@ class OfflineAttendanceRepository @Inject constructor(
     }
 
     private suspend fun mirrorAfter(
+        workerId: String,
         request: SubmissionRequest,
         workDate: String,
         projectName: String
     ): CachedRecordEntity {
-        val existing = database.cachedRecords().forDate(workDate)
+        val existing = database.cachedRecords().forDate(workerId, workDate)
         return when (request.direction) {
             TimeDirection.IN -> CachedRecordEntity(
+                workerId = workerId,
                 workDate = workDate,
                 id = existing?.id,
                 status = AttendanceStatus.WORKING.name.lowercase(),
@@ -187,6 +207,7 @@ class OfflineAttendanceRepository @Inject constructor(
                     },
                     pending = true
                 ) ?: CachedRecordEntity(
+                    workerId = workerId,
                     workDate = workDate,
                     id = null,
                     status = AttendanceStatus.COMPLETE.name.lowercase(),
@@ -210,20 +231,28 @@ class OfflineAttendanceRepository @Inject constructor(
 @Singleton
 class OfflineProjectRepository @Inject constructor(
     private val database: AttendanceDatabase,
-    private val remote: SupabaseProjectRepository
+    private val remote: SupabaseProjectRepository,
+    private val client: SupabaseClient
 ) : ProjectRepository {
 
     override suspend fun activeProjects(): Result<List<AttendanceProject>> {
+        // Projects belong to the worker's OWNER, so the cache is per
+        // worker: a different worker on this phone may have a different
+        // owner, and must not inherit this one's project list.
+        val workerId = client.auth.currentUserOrNull()?.id.orEmpty()
         val fresh = remote.activeProjects()
         fresh.getOrNull()?.let { projects ->
             if (projects.isNotEmpty()) {
-                database.cachedProjects()
-                    .replaceAll(projects.map { CachedProjectEntity(it.id, it.name) })
+                database.cachedProjects().replaceAll(
+                    workerId,
+                    projects.map { CachedProjectEntity(workerId, it.id, it.name) }
+                )
             }
             return Result.success(projects)
         }
 
-        val cached = database.cachedProjects().all().map { AttendanceProject(it.id, it.name) }
+        val cached = database.cachedProjects().all(workerId)
+            .map { AttendanceProject(it.id, it.name) }
         return if (cached.isNotEmpty()) Result.success(cached) else fresh
     }
 }
@@ -242,7 +271,8 @@ internal fun CachedRecordEntity.toDomain() = AttendanceRecord(
     pending = pending
 )
 
-internal fun AttendanceRecord.toEntity(pending: Boolean) = CachedRecordEntity(
+internal fun AttendanceRecord.toEntity(workerId: String, pending: Boolean) = CachedRecordEntity(
+    workerId = workerId,
     workDate = workDate,
     id = id,
     status = status.name.lowercase(),
