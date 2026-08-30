@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -37,6 +38,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -55,15 +57,20 @@ import com.dacs.attendance.ui.theme.BorderDefault
 import com.dacs.attendance.ui.theme.Brown
 import com.dacs.attendance.ui.theme.Dimens
 import com.dacs.attendance.ui.theme.Green
+import com.dacs.attendance.ui.theme.GreenBorder
+import com.dacs.attendance.ui.theme.GreenPressed
 import com.dacs.attendance.ui.theme.GreenTint
 import com.dacs.attendance.ui.theme.Hairline
 import com.dacs.attendance.ui.theme.MonoFamily
 import com.dacs.attendance.ui.theme.Surface
+import com.dacs.attendance.ui.theme.SurfaceRaised
+import com.dacs.attendance.ui.theme.TextPrimary
 import com.dacs.attendance.ui.theme.TextDisabled
 import com.dacs.attendance.ui.theme.TextMuted
 import com.dacs.attendance.ui.theme.TextSecondary
 import java.time.Instant
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 import kotlinx.coroutines.delay
 
 private val DateHeading = DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy")
@@ -131,187 +138,305 @@ fun DashboardContent(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(Dimens.ScreenPadding),
-        verticalArrangement = Arrangement.spacedBy(Dimens.GapMedium)
-    ) {
-        // Greeting, name, "Mason · W-0003", and the avatar -- the design's
-        // header. The position and worker number are there because a
-        // shared site phone is passed between people, and the first thing
-        // to check before tapping TIME IN is whose account this is.
+    val record = state.record
+    val today = Instant.now().atZone(AttendanceZone).format(DateHeading)
+
+    Column(modifier = modifier.fillMaxSize().background(SurfaceRaised)) {
+        // A white bar with a rule under it, as the design draws both
+        // states. Once the worker has timed in the greeting goes and the
+        // date moves up here -- the morning hello has done its job, and
+        // what matters mid-shift is which day this record belongs to.
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Surface)
+                .padding(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 18.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
+                if (record == null) {
+                    Text(
+                        text = stringResource(
+                            when (greetingAt(Instant.now())) {
+                                Greeting.MORNING -> R.string.greeting_morning
+                                Greeting.AFTERNOON -> R.string.greeting_afternoon
+                                Greeting.EVENING -> R.string.greeting_evening
+                            }
+                        ),
+                        fontSize = 15.sp,
+                        color = TextMuted
+                    )
+                }
                 Text(
-                    text = stringResource(
-                        when (greetingAt(Instant.now())) {
-                            Greeting.MORNING -> R.string.greeting_morning
-                            Greeting.AFTERNOON -> R.string.greeting_afternoon
-                            Greeting.EVENING -> R.string.greeting_evening
-                        }
-                    ),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = TextMuted
-                )
-                Text(
-                    // The FULL name, as the design shows it. The greeting
-                    // above already carries the friendly half; this line
-                    // is the identity check on a shared phone.
                     text = worker.displayName ?: worker.firstName,
-                    style = MaterialTheme.typography.headlineMedium
+                    style = MaterialTheme.typography.headlineSmall
                 )
                 Text(
-                    text = worker.positionAndId,
-                    style = MaterialTheme.typography.bodyMedium,
+                    // Who you are before you have timed in; WHICH DAY once
+                    // you have.
+                    text = if (record == null) worker.positionAndId else today,
+                    fontSize = 14.sp,
                     color = TextMuted
                 )
             }
             Box(
                 modifier = Modifier
-                    .size(56.dp)
+                    .size(48.dp)
                     .background(GreenTint, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = worker.initials,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.ExtraBold,
                     color = Green
                 )
             }
         }
+        Box(Modifier.fillMaxWidth().height(1.dp).background(BorderDefault))
 
-        // Centred, on its own row above the action -- the design puts the
-        // date where it is read once, on the way to the button.
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = Icons.Filled.CalendarToday,
-                contentDescription = null,
-                tint = TextMuted,
-                modifier = Modifier.size(17.dp)
-            )
-            Spacer(Modifier.width(9.dp))
-            Text(
-                text = Instant.now().atZone(AttendanceZone).format(DateHeading),
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = TextSecondary
-            )
-        }
-
-        // THE action, directly under the date and above everything that
-        // merely reports state. One primary action per screen, and it is
-        // the reason the worker opened the app.
-        when (state.nextAction) {
-            TimeDirection.IN -> HeroActionButton(
-                english = stringResource(R.string.action_time_in),
-                tagalog = stringResource(R.string.action_time_in_hint),
-                icon = Icons.AutoMirrored.Filled.Login,
-                container = Green,
-                onClick = { onStartFlow(TimeDirection.IN) }
-            )
-
-            TimeDirection.OUT -> HeroActionButton(
-                english = stringResource(R.string.action_time_out),
-                tagalog = stringResource(R.string.action_time_out_hint),
-                icon = Icons.AutoMirrored.Filled.Logout,
-                container = Brown,
-                onClick = { onStartFlow(TimeDirection.OUT) }
-            )
-
-            // Day closed, or we could not read it. Offering TIME IN here
-            // could only ever produce ALREADY_TIMED_IN.
-            null -> if (state.failure == null && !state.loading) {
-                Text(
-                    text = stringResource(R.string.day_complete),
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = Green,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        }
-
-        // The day's state, reported UNDER the action: the three steps and
-        // how far in the worker is.
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .background(Surface, RoundedCornerShape(Dimens.RadiusLarge))
-                .border(1.dp, BorderDefault, RoundedCornerShape(Dimens.RadiusLarge))
-                .padding(horizontal = Dimens.GapMedium, vertical = 18.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+                .fillMaxSize()
+                .padding(horizontal = 20.dp)
+                .padding(top = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(Dimens.GapMedium)
         ) {
-            DayStepper(
-                timeIn = state.timeInStep,
-                working = state.workingStep,
-                timeOut = state.timeOutStep,
-                timeInCaption = stringResource(state.timeInStep.captionFor(R.string.step_time_in_tl)),
-                workingCaption = stringResource(state.workingStep.captionFor(R.string.step_working_now_tl)),
-                // "Naka-lock", not the generic "Hindi pa": Time Out is
-                // locked BY the day, and the design says so by name.
-                timeOutCaption = stringResource(
-                    state.timeOutStep.captionFor(
-                        nowCaption = R.string.step_time_out_now_tl,
-                        lockedCaption = R.string.step_time_out_tl
-                    )
-                )
-            )
-
-            Box(Modifier.fillMaxWidth().height(1.dp).background(Hairline))
+            state.failure?.let { AttendanceFailureNotice(it, onRetry = onRetry) }
 
             when {
-                state.loading -> CircularProgressIndicator(
-                    color = Green,
-                    modifier = Modifier.size(24.dp)
-                )
+                state.loading -> Box(Modifier.fillMaxWidth(), Alignment.Center) {
+                    CircularProgressIndicator(color = Green)
+                }
 
-                state.record != null -> TodaySummary(
-                    timeInLabel = state.record?.timeInAt?.atZone(AttendanceZone)?.format(ClockTime),
-                    projectName = state.record?.timeInProjectName,
-                    hours = state.totalHoursLabel,
-                    complete = state.record?.status == AttendanceStatus.COMPLETE,
-                    pending = state.record?.pending == true
-                )
+                // Nothing recorded yet: the date, the action, and the
+                // three steps of the day ahead.
+                record == null -> {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.CalendarToday,
+                            contentDescription = null,
+                            tint = TextMuted,
+                            modifier = Modifier.size(17.dp)
+                        )
+                        Spacer(Modifier.width(9.dp))
+                        Text(
+                            text = today,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = TextSecondary
+                        )
+                    }
 
-                else -> Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = stringResource(R.string.no_time_yet),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TextMuted
+                    ActionFor(state.nextAction, onStartFlow, state.failure, state.loading)
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Surface, RoundedCornerShape(Dimens.RadiusLarge))
+                            .border(1.dp, BorderDefault, RoundedCornerShape(Dimens.RadiusLarge))
+                            .padding(horizontal = Dimens.GapMedium, vertical = 18.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        DayStepper(
+                            timeIn = state.timeInStep,
+                            working = state.workingStep,
+                            timeOut = state.timeOutStep,
+                            timeInCaption = stringResource(
+                                state.timeInStep.captionFor(R.string.step_time_in_tl)
+                            ),
+                            workingCaption = stringResource(
+                                state.workingStep.captionFor(R.string.step_working_now_tl)
+                            ),
+                            // "Naka-lock", not the generic "Hindi pa":
+                            // Time Out is locked BY the day, and the
+                            // design says so by name.
+                            timeOutCaption = stringResource(
+                                state.timeOutStep.captionFor(
+                                    nowCaption = R.string.step_time_out_now_tl,
+                                    lockedCaption = R.string.step_time_out_tl
+                                )
+                            )
+                        )
+
+                        Box(Modifier.fillMaxWidth().height(1.dp).background(Hairline))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(R.string.no_time_yet),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = TextMuted
+                            )
+                            // A dash pair reads as "no figure yet";
+                            // "0h 0m" would read as a day worked to no
+                            // hours, which is a different, untrue thing.
+                            Text(
+                                text = "— : —",
+                                fontFamily = MonoFamily,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = TextDisabled
+                            )
+                        }
+                    }
+                }
+
+                // Timed in: what was recorded, the running total, and the
+                // way out. No stepper -- the day has moved past it.
+                else -> {
+                    TimedInCard(
+                        timeInLabel = record.timeInAt?.atZone(AttendanceZone)?.format(ClockTime),
+                        projectName = record.timeInProjectName,
+                        pending = record.pending
                     )
-                    // The design's placeholder. A dash pair reads as "no
-                    // figure yet"; "0h 0m" would read as a day worked to
-                    // no hours, which is a different and untrue thing.
-                    Text(
-                        text = "— : —",
-                        fontFamily = MonoFamily,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = TextDisabled
+                    HoursCard(
+                        hours = state.totalHoursLabel,
+                        complete = record.status == AttendanceStatus.COMPLETE
                     )
+                    ActionFor(state.nextAction, onStartFlow, state.failure, state.loading)
                 }
             }
+
+            Spacer(Modifier.weight(1f))
         }
-
-        state.failure?.let { AttendanceFailureNotice(it, onRetry = onRetry) }
-
-        Spacer(Modifier.weight(1f))
     }
 }
+
+/** TIME IN, TIME OUT, or the sentence that ends the day. */
+@Composable
+private fun ActionFor(
+    next: TimeDirection?,
+    onStartFlow: (TimeDirection) -> Unit,
+    failure: com.dacs.attendance.domain.AttendanceFailure?,
+    loading: Boolean
+) {
+    when (next) {
+        TimeDirection.IN -> HeroActionButton(
+            english = stringResource(R.string.action_time_in),
+            tagalog = stringResource(R.string.action_time_in_hint),
+            icon = Icons.AutoMirrored.Filled.Login,
+            container = Green,
+            onClick = { onStartFlow(TimeDirection.IN) }
+        )
+
+        TimeDirection.OUT -> HeroActionButton(
+            english = stringResource(R.string.action_time_out),
+            tagalog = stringResource(R.string.action_time_out_hint),
+            icon = Icons.AutoMirrored.Filled.Logout,
+            container = Brown,
+            onClick = { onStartFlow(TimeDirection.OUT) }
+        )
+
+        // Day closed, or we could not read it. Offering TIME IN here
+        // could only ever produce ALREADY_TIMED_IN.
+        null -> if (failure == null && !loading) {
+            Text(
+                text = stringResource(R.string.day_complete),
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Bold,
+                color = Green,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+/** "Timed in at 7:45 AM" over the project, with the tick that says so. */
+@Composable
+private fun TimedInCard(timeInLabel: String?, projectName: String?, pending: Boolean) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(GreenTint, RoundedCornerShape(Dimens.RadiusLarge))
+            .border(1.dp, GreenBorder, RoundedCornerShape(Dimens.RadiusLarge))
+            .padding(horizontal = 18.dp, vertical = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .background(Green, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Check,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(26.dp)
+            )
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = timeInLabel?.let { stringResource(R.string.timed_in_at, it) }
+                    ?: stringResource(R.string.status_working),
+                fontSize = 17.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = GreenPressed
+            )
+            projectName?.let {
+                Text(text = it, fontSize = 14.sp, color = Green)
+            }
+            if (pending) {
+                // Reassurance, not a warning. The record is safe on the
+                // phone and there is nothing for the worker to fix.
+                Text(
+                    text = stringResource(R.string.will_sync),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextMuted
+                )
+            }
+        }
+    }
+}
+
+/** The running total, label on the left and the figure on the right. */
+@Composable
+private fun HoursCard(hours: String, complete: Boolean) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Surface, RoundedCornerShape(Dimens.RadiusLarge))
+            .border(1.dp, BorderDefault, RoundedCornerShape(Dimens.RadiusLarge))
+            .padding(18.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stringResource(
+                    if (complete) R.string.hours_total else R.string.hours_so_far
+                ).uppercase(Locale.getDefault()),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.1.em,
+                color = TextMuted
+            )
+            Text(
+                text = stringResource(R.string.hours_so_far_tl),
+                fontSize = 14.sp,
+                color = TextMuted
+            )
+        }
+        Text(
+            text = hours,
+            fontFamily = MonoFamily,
+            fontSize = 30.sp,
+            fontWeight = FontWeight.Medium,
+            color = TextPrimary
+        )
+    }
+}
+
 
 /**
  * The dashboard's one action, as the design draws it: a full-bleed panel
@@ -375,68 +500,6 @@ private fun HeroActionButton(
     }
 }
 
-/**
- * Where today stands, inside the day card rather than in a card of its
- * own -- the design puts the hours on the same line as their label, at
- * the foot of the same panel the stepper is in.
- */
-@Composable
-private fun TodaySummary(
-    timeInLabel: String?,
-    projectName: String?,
-    hours: String,
-    complete: Boolean,
-    pending: Boolean = false
-) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        if (timeInLabel != null) {
-            Text(
-                text = stringResource(R.string.timed_in_at, timeInLabel),
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Bold
-            )
-        }
-        if (projectName != null) {
-            Text(
-                text = projectName,
-                style = MaterialTheme.typography.bodyMedium,
-                color = TextSecondary
-            )
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = stringResource(
-                    if (complete) R.string.hours_total else R.string.hours_so_far
-                ),
-                style = MaterialTheme.typography.bodySmall,
-                color = TextMuted
-            )
-            Text(
-                text = hours,
-                fontFamily = MonoFamily,
-                fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.headlineSmall,
-                color = Green
-            )
-        }
-        if (pending) {
-            // Reassurance, not a warning. The record is safe on the
-            // phone and there is nothing for the worker to do about it.
-            Text(
-                text = stringResource(R.string.will_sync),
-                style = MaterialTheme.typography.bodySmall,
-                color = TextMuted
-            )
-        }
-    }
-}
 
 /**
  * The caption under a step. Done and Locked read the same in every
