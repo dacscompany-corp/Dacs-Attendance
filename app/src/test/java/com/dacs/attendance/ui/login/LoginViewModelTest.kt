@@ -47,6 +47,7 @@ class LoginViewModelTest {
 
         override suspend fun signOut() = Unit
         override suspend fun currentWorker(): WorkerProfile? = result.getOrNull()
+        override suspend fun changePassword(newPassword: String) = Result.success(Unit)
     }
 
     private fun signIn(vm: LoginViewModel, password: String = "secret123") {

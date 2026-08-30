@@ -45,6 +45,12 @@ data class TermsVersionRow(
     @SerialName("terms_version") val termsVersion: String
 )
 
+/** What the Profile screen shows under "Terms & Conditions". */
+@Serializable
+data class TermsAcceptedAtRow(
+    @SerialName("accepted_at") val acceptedAt: String
+)
+
 /**
  * The evidence row (0021). Append-only even to service_role.
  *

@@ -2,6 +2,7 @@ package com.dacs.attendance.data.local
 
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -26,5 +27,19 @@ class TermsCache @Inject constructor(
         prefs.edit().putString(key(workerId), version).apply()
     }
 
+    /**
+     * WHEN the acceptance was recorded, for the Profile screen's
+     * "Accepted 3 Aug 2026". Same reason as the version above: the
+     * profile is opened on site, and a row that says only "Terms &
+     * Conditions" because there is no signal tells the worker nothing.
+     */
+    fun acceptedAt(workerId: String): Instant? =
+        prefs.getLong(dateKey(workerId), 0L).takeIf { it > 0L }?.let(Instant::ofEpochMilli)
+
+    fun rememberAcceptedAt(workerId: String, at: Instant) {
+        prefs.edit().putLong(dateKey(workerId), at.toEpochMilli()).apply()
+    }
+
     private fun key(workerId: String) = "accepted_version_$workerId"
+    private fun dateKey(workerId: String) = "accepted_at_$workerId"
 }

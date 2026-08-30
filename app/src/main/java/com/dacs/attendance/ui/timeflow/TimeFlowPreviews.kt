@@ -93,12 +93,32 @@ private fun DescribePreview() = FlowFrame(4, Green) {
         accent = Green,
         submitting = false,
         failure = null,
+        projectName = "ABC Building Project",
+        // No file, so the thumbnail renders as the empty placeholder --
+        // what a failed decode looks like on a device.
+        photoPath = null,
         onDescriptionChange = {},
         onSubmit = {}
     )
 }
 
-@Preview(name = "07b · Refused: already timed in", showBackground = true, widthDp = 390, heightDp = 844)
+@Preview(name = "07b · Description with a chip tapped", showBackground = true, widthDp = 390, heightDp = 844)
+@Composable
+private fun DescribeChipPreview() = FlowFrame(4, Green) {
+    DescribeStep(
+        description = "Masonry",
+        direction = TimeDirection.IN,
+        accent = Green,
+        submitting = false,
+        failure = null,
+        projectName = "ABC Building Project",
+        photoPath = null,
+        onDescriptionChange = {},
+        onSubmit = {}
+    )
+}
+
+@Preview(name = "07c · Refused: already timed in", showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
 private fun DescribeRefusedPreview() = FlowFrame(4, Green) {
     DescribeStep(
@@ -107,6 +127,8 @@ private fun DescribeRefusedPreview() = FlowFrame(4, Green) {
         accent = Green,
         submitting = false,
         failure = AttendanceFailure.AlreadyTimedIn,
+        projectName = "ABC Building Project",
+        photoPath = null,
         onDescriptionChange = {},
         onSubmit = {}
     )

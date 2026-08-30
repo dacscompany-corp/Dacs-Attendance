@@ -87,16 +87,32 @@
     <string name="hours_total">TOTAL HOURS</string>
     <string name="day_complete">Tapos na ang araw mo. Salamat!</string>
 
-    <!-- The four-step flow -->
-    <string name="flow_pick_project">Select project</string>
-    <string name="flow_pick_project_tl">Piliin ang project</string>
+    <!-- The four-step flow. The headings are QUESTIONS, as the design
+         writes them: "Which project today?" tells a worker what to do
+         with the screen; "Select project" only names it. -->
+    <string name="flow_pick_project">Which project today?</string>
+    <string name="flow_pick_project_tl">Saang project ka ngayon?</string>
     <string name="flow_no_projects">Walang project na naka-lista. Tawagan ang opisina.</string>
-    <string name="flow_check_photo">Check your photo</string>
-    <string name="flow_check_photo_tl">Tingnan ang litrato</string>
-    <string name="flow_describe">Anything to add?</string>
-    <string name="flow_describe_tl">May idadagdag ka ba?</string>
+    <string name="flow_take_photo">Take your photo</string>
+    <string name="flow_take_photo_tl">Kumuha ng litrato</string>
+    <string name="flow_camera_hint">Ituro ang camera sa iyong sarili, pagkatapos pindutin ang malaking bilog.</string>
+    <string name="flow_check_photo">Is this photo clear?</string>
+    <string name="flow_check_photo_tl">Malinaw ba ang litrato?</string>
+    <string name="flow_describe">What are you working on?</string>
+    <string name="flow_describe_tl">Ano ang gagawin mo ngayon?</string>
+    <string name="flow_describe_label">Description</string>
+    <string name="flow_describe_optional">(optional)</string>
     <string name="flow_describe_hint">Hal. Gate 2, may delivery</string>
-    <string name="flow_describe_optional">Optional. Pwedeng iwan na blangko.</string>
+    <string name="flow_photo_taken">Litrato: nakuha na</string>
+    <string name="flow_chips_label">Or tap a common one</string>
+    <!-- The design's four. Tapping one is the whole point: this screen is
+         used one-handed, outdoors, often with gloves on. -->
+    <string-array name="flow_description_chips">
+        <item>Block A</item>
+        <item>Masonry</item>
+        <item>Concrete pouring</item>
+        <item>Site clearing</item>
+    </string-array>
     <string name="flow_done_in">Time In recorded</string>
     <string name="flow_done_out">Time Out recorded</string>
     <string name="camera_permission_needed">Kailangan ng camera para sa litrato. Payagan ito sa Settings.</string>
@@ -158,7 +174,27 @@
     <string name="profile_position">Position</string>
     <string name="profile_worker_id">Worker ID</string>
     <string name="profile_terms_sub">Basahin ang tinanggap mong Terms</string>
-    <string name="profile_password_note">Para palitan ang password, tawagan ang opisina.</string>
+    <!-- "Accepted 3 Aug 2026": the date the acceptance was RECORDED, so
+         a worker can see what the office holds against their name. -->
+    <string name="profile_terms_accepted">Accepted %1$s</string>
     <string name="action_close">CLOSE</string>
     <string name="action_close_tl">Isara</string>
+
+    <!-- Change password (screen 11) -->
+    <string name="profile_change_password">Change password</string>
+    <string name="profile_change_password_tl">Palitan ang password</string>
+    <string name="label_new_password">New password</string>
+    <string name="label_new_password_tl">Bagong password</string>
+    <string name="label_confirm_password">Type it again</string>
+    <string name="label_confirm_password_tl">Ulitin ang bagong password</string>
+    <string name="action_save_password">SAVE PASSWORD</string>
+    <string name="action_save_password_tl">I-save</string>
+    <string name="password_rule">Kahit anong 8 letra o numero. Huwag ibigay kaninuman.</string>
+    <string name="password_changed">Napalitan na ang password mo.</string>
+    <string name="error_password_short">Use at least 8 characters.</string>
+    <string name="error_password_short_tl">Kailangan ng 8 letra o numero pataas.</string>
+    <string name="error_password_mismatch">The two passwords do not match.</string>
+    <string name="error_password_mismatch_tl">Hindi pareho ang dalawang password.</string>
+    <string name="error_password_reused">That is your current password. Pick a different one.</string>
+    <string name="error_password_reused_tl">Iyan din ang password mo ngayon. Pumili ng iba.</string>
 </resources>

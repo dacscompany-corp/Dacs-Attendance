@@ -59,7 +59,7 @@ data class AttendanceRecordRow(
  * resolve, and the fractional seconds run to microseconds.
  * OffsetDateTime handles both.
  */
-private fun String.toInstantOrNull(): Instant? = runCatching {
+internal fun String.toInstantOrNull(): Instant? = runCatching {
     java.time.OffsetDateTime.parse(this).toInstant()
 }.getOrElse {
     runCatching { Instant.parse(this) }.getOrNull()

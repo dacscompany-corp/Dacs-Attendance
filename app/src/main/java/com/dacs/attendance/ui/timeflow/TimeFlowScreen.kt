@@ -7,19 +7,25 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -30,8 +36,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -45,6 +53,8 @@ import com.dacs.attendance.domain.AttendanceProject
 import com.dacs.attendance.domain.AttendanceRecord
 import com.dacs.attendance.domain.TimeDirection
 import com.dacs.attendance.domain.TotalHours
+import com.dacs.attendance.domain.isChipSelected
+import com.dacs.attendance.domain.toggleDescriptionChip
 import com.dacs.attendance.ui.components.AttendanceFailureNotice
 import com.dacs.attendance.ui.components.PrimaryActionButton
 import com.dacs.attendance.ui.components.StepProgressBar
@@ -53,8 +63,6 @@ import com.dacs.attendance.ui.theme.Brown
 import com.dacs.attendance.ui.theme.Dimens
 import com.dacs.attendance.ui.theme.Field
 import com.dacs.attendance.ui.theme.Green
-import com.dacs.attendance.ui.theme.GreenBorder
-import com.dacs.attendance.ui.theme.GreenTint
 import com.dacs.attendance.ui.theme.MonoFamily
 import com.dacs.attendance.ui.theme.TextMuted
 import com.dacs.attendance.ui.theme.TextSecondary
@@ -112,7 +120,11 @@ fun TimeFlowScreen(
 
             FlowStep.TakePhoto -> CameraCapture(
                 onPhotoTaken = viewModel::onPhotoTaken,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
+                // The preview caption is the burned-in one, and it names
+                // the project the worker picked one screen ago.
+                projectName = state.selectedProject?.name,
+                accent = accent
             )
 
             FlowStep.CheckPhoto -> CheckPhotoStep(
@@ -129,6 +141,8 @@ fun TimeFlowScreen(
                 accent = accent,
                 submitting = state.submitting,
                 failure = state.failure,
+                projectName = state.selectedProject?.name,
+                photoPath = state.photo?.file?.absolutePath,
                 onDescriptionChange = viewModel::onDescriptionChange,
                 onSubmit = viewModel::onSubmit,
                 modifier = Modifier.weight(1f)
@@ -221,7 +235,10 @@ private fun ProjectRow(
             .fillMaxWidth()
             .defaultMinSize(minHeight = Dimens.ProjectRow)
             .background(
-                color = if (selected) GreenTint else Field,
+                // Tinted from the accent, not a fixed green: a Time Out
+                // is brown all the way through, and a green row inside a
+                // brown flow reads as the wrong screen.
+                color = if (selected) accent.copy(alpha = 0.12f) else Field,
                 shape = RoundedCornerShape(Dimens.RadiusMedium)
             )
             .border(
@@ -298,6 +315,8 @@ internal fun DescribeStep(
     accent: Color,
     submitting: Boolean,
     failure: com.dacs.attendance.domain.AttendanceFailure?,
+    projectName: String?,
+    photoPath: String?,
     onDescriptionChange: (String) -> Unit,
     onSubmit: () -> Unit,
     modifier: Modifier = Modifier
@@ -313,28 +332,52 @@ internal fun DescribeStep(
             tagalog = stringResource(R.string.flow_describe_tl)
         )
 
-        OutlinedTextField(
-            value = description,
-            onValueChange = onDescriptionChange,
-            enabled = !submitting,
-            placeholder = { Text(stringResource(R.string.flow_describe_hint), color = TextMuted) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .defaultMinSize(minHeight = 120.dp),
-            shape = RoundedCornerShape(Dimens.RadiusMedium),
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = Field,
-                unfocusedContainerColor = Field,
-                focusedBorderColor = accent,
-                unfocusedBorderColor = BorderDefault
-            )
-        )
+        // What the worker is about to submit, restated on the last screen
+        // before SUBMIT. Four steps in, "which project did I pick?" is a
+        // real question, and the answer is on the record forever.
+        projectName?.let { CapturedContextRow(it, photoPath, accent) }
 
-        Text(
-            text = stringResource(R.string.flow_describe_optional),
-            style = MaterialTheme.typography.bodySmall,
-            color = TextMuted
+        Column(verticalArrangement = Arrangement.spacedBy(Dimens.GapSmall)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    text = stringResource(R.string.flow_describe_label),
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    // Kept beside the label rather than under the box: a
+                    // worker deciding whether to skip this needs to know
+                    // it is optional BEFORE they start typing.
+                    text = stringResource(R.string.flow_describe_optional),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = TextMuted
+                )
+            }
+
+            OutlinedTextField(
+                value = description,
+                onValueChange = onDescriptionChange,
+                enabled = !submitting,
+                placeholder = { Text(stringResource(R.string.flow_describe_hint), color = TextMuted) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .defaultMinSize(minHeight = 120.dp),
+                shape = RoundedCornerShape(Dimens.RadiusMedium),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = Field,
+                    unfocusedContainerColor = Field,
+                    focusedBorderColor = accent,
+                    unfocusedBorderColor = BorderDefault
+                )
+            )
+        }
+
+        DescriptionChips(
+            description = description,
+            accent = accent,
+            enabled = !submitting,
+            onDescriptionChange = onDescriptionChange
         )
 
         failure?.let { AttendanceFailureNotice(it) }
@@ -350,6 +393,129 @@ internal fun DescribeStep(
             onClick = onSubmit,
             container = accent,
             loading = submitting
+        )
+    }
+}
+
+/** Project + "photo taken", so step 4 shows what steps 1-3 produced. */
+@Composable
+private fun CapturedContextRow(projectName: String, photoPath: String?, accent: Color) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Field, RoundedCornerShape(Dimens.RadiusSmall))
+            .padding(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        AsyncImage(
+            model = photoPath,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .size(52.dp)
+                .background(BorderDefault, RoundedCornerShape(9.dp))
+                .clip(RoundedCornerShape(9.dp))
+        )
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = projectName,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = stringResource(R.string.flow_photo_taken),
+                style = MaterialTheme.typography.bodySmall,
+                color = TextMuted
+            )
+        }
+        Icon(
+            imageVector = Icons.Filled.CheckCircle,
+            contentDescription = null,
+            tint = accent,
+            modifier = Modifier.size(22.dp)
+        )
+    }
+}
+
+/**
+ * "Or tap a common one".
+ *
+ * The reason this exists is physical: step 4 is done standing up,
+ * one-handed, outdoors, often with gloves on. A chip is one tap where
+ * the keyboard is twenty, and the toggling rules live in
+ * [toggleDescriptionChip] where they can be tested.
+ */
+@Composable
+private fun DescriptionChips(
+    description: String,
+    accent: Color,
+    enabled: Boolean,
+    onDescriptionChange: (String) -> Unit
+) {
+    val chips = stringArrayResource(R.array.flow_description_chips)
+    if (chips.isEmpty()) return
+
+    Column(verticalArrangement = Arrangement.spacedBy(Dimens.GapSmall)) {
+        Text(
+            text = stringResource(R.string.flow_chips_label),
+            style = MaterialTheme.typography.labelMedium,
+            color = TextMuted
+        )
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(Dimens.GapSmall),
+            verticalArrangement = Arrangement.spacedBy(Dimens.GapSmall)
+        ) {
+            chips.forEach { chip ->
+                DescriptionChip(
+                    text = chip,
+                    selected = isChipSelected(description, chip),
+                    accent = accent,
+                    enabled = enabled,
+                    onClick = { onDescriptionChange(toggleDescriptionChip(description, chip)) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DescriptionChip(
+    text: String,
+    selected: Boolean,
+    accent: Color,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    val shape = RoundedCornerShape(999.dp)
+    Box(
+        modifier = Modifier
+            // 48dp, not the design's 44: this is the smallest target in
+            // the app and it is tapped with a work glove on.
+            .defaultMinSize(minHeight = 48.dp)
+            .background(
+                // Tinted from the accent rather than a fixed green, so
+                // Time Out stays brown throughout as the design says.
+                color = if (selected) accent.copy(alpha = 0.12f) else Color.Transparent,
+                shape = shape
+            )
+            .border(
+                width = if (selected) 2.dp else 1.dp,
+                color = if (selected) accent else BorderDefault,
+                shape = shape
+            )
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (selected) accent else TextSecondary,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
         )
     }
 }
@@ -414,7 +580,7 @@ internal fun ConfirmedStep(
 }
 
 @Composable
-private fun StepHeading(english: String, tagalog: String) {
+internal fun StepHeading(english: String, tagalog: String) {
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(text = english, style = MaterialTheme.typography.headlineSmall)
         Text(

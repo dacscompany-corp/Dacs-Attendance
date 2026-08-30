@@ -66,6 +66,19 @@ class SupabaseAuthRepository @Inject constructor(
         runCatchingExceptCancellation { client.auth.signOut() }
     }
 
+    /**
+     * The session stays valid afterwards: GoTrue reissues tokens for the
+     * same user on a password update. The worker is NOT signed out, which
+     * matters because they may be mid-shift with a queued Time In that
+     * still has to upload under this session.
+     */
+    override suspend fun changePassword(newPassword: String): Result<Unit> =
+        runCatchingExceptCancellation {
+            client.auth.awaitInitialization()
+            client.auth.updateUser { password = newPassword }
+            Unit
+        }
+
     override suspend fun currentWorker(): WorkerProfile? =
         runCatchingExceptCancellation {
             // The Auth plugin restores the stored session asynchronously.

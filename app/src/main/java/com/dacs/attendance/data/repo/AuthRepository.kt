@@ -26,6 +26,17 @@ interface AuthRepository {
 
     /** The persisted session's worker, or null when nobody is signed in. */
     suspend fun currentWorker(): WorkerProfile?
+
+    /**
+     * Sets a new password for the signed-in worker.
+     *
+     * Deliberately NOT routed through `attendance-signin`: that function
+     * holds service_role, and a service_role password change would let a
+     * caller rewrite any account's password on the strength of a request
+     * body. This runs on the worker's OWN session, so the only account it
+     * can ever change is the one already signed in on this phone.
+     */
+    suspend fun changePassword(newPassword: String): Result<Unit>
 }
 
 /** A sign-in refused for a reason the worker can be told about. */

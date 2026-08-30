@@ -47,3 +47,12 @@ val TextDisabled  = Color(0xFF9A9A9E)
 // ── Lines ───────────────────────────────────────────────────────────
 val BorderDefault = Color(0xFFE5E5E5)
 val Hairline      = Color(0xFFF0F0EE)
+
+// ── The camera preview ──────────────────────────────────────────────
+/**
+ * What sits behind the live camera view (design screen 05). Same value
+ * as [TextPrimary], named separately because it is a SURFACE here: the
+ * preview and its burned-in caption are read against it, and lightening
+ * it to match some future theme would wash the caption out.
+ */
+val PreviewBackdrop = Color(0xFF1C1C1E)

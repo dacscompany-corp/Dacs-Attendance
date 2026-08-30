@@ -4,12 +4,15 @@ import android.os.Build
 import com.dacs.attendance.BuildConfig
 import com.dacs.attendance.data.remote.AgreementEventRow
 import com.dacs.attendance.data.remote.TermsAcceptanceRow
+import com.dacs.attendance.data.remote.TermsAcceptedAtRow
 import com.dacs.attendance.data.remote.TermsVersionRow
+import com.dacs.attendance.data.remote.toInstantOrNull
 import com.dacs.attendance.domain.AttendanceTerms
 import com.dacs.attendance.domain.WorkerProfile
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.Columns
+import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -28,6 +31,23 @@ class SupabaseTermsRepository @Inject constructor(
                 .decodeList<TermsVersionRow>()
                 .map { it.termsVersion }
                 .toSet()
+        }
+
+    override suspend fun acceptedAt(workerId: String, version: String): Result<Instant?> =
+        runCatchingExceptCancellation {
+            client.postgrest
+                .from("attendance_terms_acceptances")
+                .select(Columns.raw("accepted_at")) {
+                    filter {
+                        eq("worker_id", workerId)
+                        eq("terms_version", version)
+                    }
+                    limit(1)
+                }
+                .decodeList<TermsAcceptedAtRow>()
+                .firstOrNull()
+                ?.acceptedAt
+                ?.toInstantOrNull()
         }
 
     /**
