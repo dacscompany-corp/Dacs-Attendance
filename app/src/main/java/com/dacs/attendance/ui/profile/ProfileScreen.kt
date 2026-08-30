@@ -126,7 +126,7 @@ internal fun ProfileContent(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = initialsOf(worker),
+                    text = worker.initials,
                     style = MaterialTheme.typography.headlineSmall,
                     color = Green
                 )
@@ -489,12 +489,3 @@ private fun RowButton(
     }
 }
 
-/** "JD" for Juan dela Cruz — first letters of the first two words. */
-private fun initialsOf(worker: WorkerProfile): String {
-    val parts = (worker.displayName ?: worker.firstName).trim().split(" ").filter { it.isNotEmpty() }
-    return when {
-        parts.isEmpty() -> "?"
-        parts.size == 1 -> parts[0].take(1).uppercase()
-        else -> (parts[0].take(1) + parts[1].take(1)).uppercase()
-    }
-}

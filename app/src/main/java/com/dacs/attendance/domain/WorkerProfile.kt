@@ -17,6 +17,28 @@ data class WorkerProfile(
     val workerIdLabel: String
         get() = workerNo?.let { "W-%04d".format(it) } ?: "--"
 
+    /**
+     * "JD" for Juan dela Cruz -- the avatar on the dashboard and the
+     * profile. First letters of the first two words, so the two screens
+     * cannot disagree about who this is.
+     */
+    val initials: String
+        get() {
+            val parts = (displayName ?: firstName).trim()
+                .split(" ")
+                .filter { it.isNotEmpty() }
+            return when {
+                parts.isEmpty() -> "?"
+                parts.size == 1 -> parts[0].take(1).uppercase()
+                else -> (parts[0].take(1) + parts[1].take(1)).uppercase()
+            }
+        }
+
+    /** "Mason · W-0042" -- the line under the name on both screens. */
+    val positionAndId: String
+        get() = listOfNotNull(position?.takeIf { it.isNotBlank() }, workerIdLabel)
+            .joinToString(" · ")
+
     /** First name only: the dashboard greets "Magandang umaga, Juan". */
     val firstName: String
         get() = displayName?.trim()?.substringBefore(' ')?.takeIf { it.isNotEmpty() }

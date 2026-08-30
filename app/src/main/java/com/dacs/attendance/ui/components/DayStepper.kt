@@ -9,8 +9,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -18,7 +22,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.dacs.attendance.ui.theme.Brown
 import com.dacs.attendance.ui.theme.Dimens
@@ -34,6 +37,10 @@ enum class StepState { Done, Now, Locked }
 /**
  * The day at a glance: Time In -> Working -> Time Out.
  *
+ * A VERTICAL list, as the design draws it, not three columns across.
+ * Reading top to bottom is reading the day in the order it happens, and
+ * it leaves each step room for a full label instead of a wrapped one.
+ *
  * Colour does the work here, as everywhere in this app: green means
  * done or do-it-now, grey means locked. A worker reads the colour before
  * they read the label, so these must not be restyled into one palette.
@@ -48,16 +55,18 @@ fun DayStepper(
     timeOutCaption: String,
     modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(Dimens.GapSmall),
-        verticalAlignment = Alignment.Top
-    ) {
-        Step(1, "Time In", timeInCaption, timeIn, Green, Modifier.weight(1f))
-        Step(2, "Working", workingCaption, working, Green, Modifier.weight(1f))
-        Step(3, "Time Out", timeOutCaption, timeOut, Brown, Modifier.weight(1f))
+    Column(modifier = modifier.fillMaxWidth()) {
+        Step(1, "Time In", timeInCaption, timeIn, Green, railBelow = true)
+        Step(2, "Working", workingCaption, working, Green, railBelow = true)
+        // Only Time Out wears the padlock, as the design draws it. A lock
+        // on "Working" would say the worker is barred from working, when
+        // all it means is that they have not timed in yet.
+        Step(3, "Time Out", timeOutCaption, timeOut, Brown, railBelow = false, locks = true)
     }
 }
+
+/** The line joining one badge to the next. */
+private val RailHeight = 20.dp
 
 @Composable
 private fun Step(
@@ -66,48 +75,72 @@ private fun Step(
     caption: String,
     state: StepState,
     activeColour: Color,
-    modifier: Modifier = Modifier
+    railBelow: Boolean,
+    modifier: Modifier = Modifier,
+    /** Whether THIS step shows a padlock when it is not yet available. */
+    locks: Boolean = false
 ) {
-    val colour = when (state) {
-        StepState.Done, StepState.Now -> activeColour
-        StepState.Locked -> TextDisabled
-    }
+    val locked = state == StepState.Locked
+    val colour = if (locked) TextDisabled else activeColour
 
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        Box(
+    Row(modifier = modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(
+                modifier = Modifier
+                    .size(30.dp)
+                    .background(if (locked) Hairline else colour, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                if (locked && locks) {
+                    // A padlock rather than a grey "3". The number says
+                    // "third"; the lock says "you cannot do this yet",
+                    // which is the thing the worker needs to know.
+                    Icon(
+                        imageVector = Icons.Filled.Lock,
+                        contentDescription = null,
+                        tint = TextDisabled,
+                        modifier = Modifier.size(15.dp)
+                    )
+                } else {
+                    Text(
+                        text = number.toString(),
+                        fontFamily = MonoFamily,
+                        fontWeight = FontWeight.Bold,
+                        color = if (locked) TextDisabled else Color.White,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+            if (railBelow) {
+                Box(
+                    Modifier
+                        .width(2.dp)
+                        .height(RailHeight)
+                        .background(if (state == StepState.Done) colour else Hairline)
+                )
+            }
+        }
+
+        Column(
             modifier = Modifier
-                .size(30.dp)
-                .background(
-                    color = if (state == StepState.Locked) Hairline else colour,
-                    shape = CircleShape
-                ),
-            contentAlignment = Alignment.Center
+                .padding(start = 14.dp)
+                // Aligns the label with the badge beside it rather than
+                // with the top of the row.
+                .padding(top = 3.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
             Text(
-                text = number.toString(),
-                fontFamily = MonoFamily,
+                text = label,
+                style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Bold,
-                color = if (state == StepState.Locked) TextDisabled else Color.White,
-                style = MaterialTheme.typography.bodyMedium
+                color = if (locked) TextDisabled else colour
+            )
+            Text(
+                text = caption,
+                style = MaterialTheme.typography.bodySmall,
+                color = TextMuted
             )
         }
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Bold,
-            color = if (state == StepState.Locked) TextDisabled else colour,
-            textAlign = TextAlign.Center
-        )
-        Text(
-            text = caption,
-            style = MaterialTheme.typography.bodySmall,
-            color = TextMuted,
-            textAlign = TextAlign.Center
-        )
     }
 }
 
