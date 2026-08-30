@@ -19,10 +19,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -45,27 +47,50 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import com.dacs.attendance.R
 import com.dacs.attendance.domain.AttendanceProject
 import com.dacs.attendance.domain.AttendanceRecord
+import com.dacs.attendance.domain.AttendanceZone
 import com.dacs.attendance.domain.TimeDirection
 import com.dacs.attendance.domain.TotalHours
 import com.dacs.attendance.domain.isChipSelected
 import com.dacs.attendance.domain.toggleDescriptionChip
 import com.dacs.attendance.ui.components.AttendanceFailureNotice
 import com.dacs.attendance.ui.components.PrimaryActionButton
-import com.dacs.attendance.ui.components.StepProgressBar
+import com.dacs.attendance.ui.components.FlowHeader
 import com.dacs.attendance.ui.theme.BorderDefault
 import com.dacs.attendance.ui.theme.Brown
 import com.dacs.attendance.ui.theme.Dimens
 import com.dacs.attendance.ui.theme.Field
 import com.dacs.attendance.ui.theme.Green
 import com.dacs.attendance.ui.theme.MonoFamily
+import com.dacs.attendance.ui.theme.Surface
+import com.dacs.attendance.ui.theme.TextPrimary
 import com.dacs.attendance.ui.theme.TextMuted
 import com.dacs.attendance.ui.theme.TextSecondary
+
+private val ConfirmTime = DateTimeFormatter.ofPattern("h:mm a")
+private val ConfirmDate = DateTimeFormatter.ofPattern("d MMM yyyy")
+
+/**
+ * The question each step asks. Kept here rather than inside the steps so
+ * the one shared header can render it beside the back arrow and the
+ * "STEP n / 4" counter, as the design draws them.
+ */
+private fun FlowStep.headings(): Pair<Int, Int> = when (this) {
+    FlowStep.PickProject -> R.string.flow_pick_project to R.string.flow_pick_project_tl
+    FlowStep.TakePhoto -> R.string.flow_take_photo to R.string.flow_take_photo_tl
+    FlowStep.CheckPhoto -> R.string.flow_check_photo to R.string.flow_check_photo_tl
+    FlowStep.Describe -> R.string.flow_describe to R.string.flow_describe_tl
+    FlowStep.Confirmed -> R.string.flow_done_in to R.string.flow_done_in_tl
+}
 
 /**
  * Screens 04-08, as ONE flow parameterised by direction.
@@ -95,15 +120,44 @@ fun TimeFlowScreen(
         if (state.step == FlowStep.PickProject) onCancelled() else viewModel.onBack()
     }
 
+    // Full-bleed, outside the padded column: the confirmation is a whole
+    // green screen in the design, not a card sitting on a white one.
+    if (state.step == FlowStep.Confirmed) {
+        ConfirmedStep(
+            record = state.saved,
+            direction = direction,
+            description = state.description,
+            accent = accent,
+            onDone = onFinished,
+            modifier = modifier.fillMaxSize()
+        )
+        return
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
+            // White, not the dashboard's canvas: the flow is a sequence of
+            // sheets in the design, and the cards on them need to read as
+            // raised off something.
+            .background(Surface)
             .padding(Dimens.ScreenPadding),
         verticalArrangement = Arrangement.spacedBy(Dimens.GapMedium)
     ) {
-        if (state.step != FlowStep.Confirmed) {
-            StepProgressBar(step = state.stepNumber, total = 4, accent = accent)
-        }
+        val (english, tagalog) = state.step.headings()
+        FlowHeader(
+            step = state.stepNumber,
+            total = 4,
+            english = stringResource(english),
+            tagalog = stringResource(tagalog),
+            accent = accent,
+            // The same decision the system back button makes, because a
+            // worker who taps one and then the other must not get two
+            // different behaviours out of the same screen.
+            onBack = {
+                if (state.step == FlowStep.PickProject) onCancelled() else viewModel.onBack()
+            }
+        )
 
         when (state.step) {
             FlowStep.PickProject -> PickProjectStep(
@@ -148,13 +202,7 @@ fun TimeFlowScreen(
                 modifier = Modifier.weight(1f)
             )
 
-            FlowStep.Confirmed -> ConfirmedStep(
-                record = state.saved,
-                direction = direction,
-                accent = accent,
-                onDone = onFinished,
-                modifier = Modifier.weight(1f)
-            )
+            FlowStep.Confirmed -> Unit  // handled above, full-bleed
         }
     }
 }
@@ -177,12 +225,15 @@ internal fun PickProjectStep(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(Dimens.GapMedium)
     ) {
-        StepHeading(
-            english = stringResource(R.string.flow_pick_project),
-            tagalog = stringResource(R.string.flow_pick_project_tl)
-        )
-
         failure?.let { AttendanceFailureNotice(it, onRetry = onRetry) }
+
+        Text(
+            text = stringResource(R.string.flow_active_projects).uppercase(Locale.getDefault()),
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 0.1.em,
+            color = TextMuted
+        )
 
         when {
             loading -> Box(Modifier.fillMaxWidth().weight(1f), Alignment.Center) {
@@ -250,11 +301,39 @@ private fun ProjectRow(
             .padding(horizontal = 18.dp, vertical = 16.dp),
         contentAlignment = Alignment.CenterStart
     ) {
-        Text(
-            text = project.name,
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(30.dp)
+                    .then(
+                        if (selected) {
+                            Modifier.background(accent, CircleShape)
+                        } else {
+                            Modifier.border(2.dp, BorderDefault, CircleShape)
+                        }
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                if (selected) {
+                    Icon(
+                        imageVector = Icons.Filled.Check,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(19.dp)
+                    )
+                }
+            }
+            Text(
+                text = project.name,
+                fontSize = 19.sp,
+                lineHeight = 24.sp,
+                fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Bold,
+                color = if (selected) accent else TextPrimary
+            )
+        }
     }
 }
 
@@ -272,11 +351,6 @@ internal fun CheckPhotoStep(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(Dimens.GapMedium)
     ) {
-        StepHeading(
-            english = stringResource(R.string.flow_check_photo),
-            tagalog = stringResource(R.string.flow_check_photo_tl)
-        )
-
         // Coil, not a hand-rolled BitmapFactory decode: the file carries
         // EXIF rotation and half the phones in the field would show a
         // sideways selfie without it.
@@ -321,17 +395,13 @@ internal fun DescribeStep(
     onSubmit: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
+    Column(modifier = modifier.fillMaxWidth()) {
+      Column(
+        modifier = Modifier
+            .weight(1f)
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(Dimens.GapMedium)
-    ) {
-        StepHeading(
-            english = stringResource(R.string.flow_describe),
-            tagalog = stringResource(R.string.flow_describe_tl)
-        )
-
+      ) {
         // What the worker is about to submit, restated on the last screen
         // before SUBMIT. Four steps in, "which project did I pick?" is a
         // real question, and the answer is on the record forever.
@@ -381,19 +451,23 @@ internal fun DescribeStep(
         )
 
         failure?.let { AttendanceFailureNotice(it) }
+      }
 
-        Spacer(Modifier.height(Dimens.GapSmall))
+      // Pinned to the foot of the sheet, not floated up under the chips:
+      // the design gives SUBMIT margin-top:auto, and on a screen the
+      // worker scrolls, the action must stay where their thumb is.
+      Spacer(Modifier.height(Dimens.GapMedium))
 
-        PrimaryActionButton(
-            english = stringResource(
-                if (direction == TimeDirection.IN) R.string.action_submit_in
-                else R.string.action_submit_out
-            ),
-            tagalog = stringResource(R.string.action_submit_tl),
-            onClick = onSubmit,
-            container = accent,
-            loading = submitting
-        )
+      PrimaryActionButton(
+          english = stringResource(
+              if (direction == TimeDirection.IN) R.string.action_submit_in
+              else R.string.action_submit_out
+          ),
+          tagalog = stringResource(R.string.action_submit_tl),
+          onClick = onSubmit,
+          container = accent,
+          loading = submitting
+      )
     }
 }
 
@@ -461,8 +535,10 @@ private fun DescriptionChips(
 
     Column(verticalArrangement = Arrangement.spacedBy(Dimens.GapSmall)) {
         Text(
-            text = stringResource(R.string.flow_chips_label),
-            style = MaterialTheme.typography.labelMedium,
+            text = stringResource(R.string.flow_chips_label).uppercase(Locale.getDefault()),
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 0.1.em,
             color = TextMuted
         )
         FlowRow(
@@ -526,67 +602,172 @@ private fun DescriptionChip(
 internal fun ConfirmedStep(
     record: AttendanceRecord?,
     direction: TimeDirection,
+    description: String,
     accent: Color,
     onDone: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val recordedAt = if (direction == TimeDirection.IN) record?.timeInAt else record?.timeOutAt
+    val project = if (direction == TimeDirection.IN) {
+        record?.timeInProjectName
+    } else {
+        record?.timeOutProjectName ?: record?.timeInProjectName
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(accent, RoundedCornerShape(Dimens.RadiusHero))
-            .padding(Dimens.ScreenPadding),
-        verticalArrangement = Arrangement.spacedBy(Dimens.GapMedium, Alignment.CenterVertically),
+            .background(accent)
+            .padding(horizontal = 26.dp, vertical = 26.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(
-            text = stringResource(
-                if (direction == TimeDirection.IN) R.string.flow_done_in
-                else R.string.flow_done_out
-            ),
-            style = MaterialTheme.typography.displaySmall,
-            color = Color.White,
-            textAlign = TextAlign.Center
-        )
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(22.dp, Alignment.CenterVertically)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(126.dp)
+                    .background(Color.White.copy(alpha = 0.15f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(96.dp)
+                        .background(Color.White, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Check,
+                        contentDescription = null,
+                        tint = accent,
+                        modifier = Modifier.size(56.dp)
+                    )
+                }
+            }
 
-        // Repeats what was saved, so the worker leaves knowing what the
-        // record says rather than trusting that it worked.
-        record?.timeInProjectName?.let { project ->
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = stringResource(
+                        if (direction == TimeDirection.IN) R.string.flow_done_in
+                        else R.string.flow_done_out
+                    ),
+                    style = MaterialTheme.typography.displaySmall,
+                    color = Color.White,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = stringResource(
+                        if (direction == TimeDirection.IN) R.string.flow_done_in_tl
+                        else R.string.flow_done_out_tl
+                    ),
+                    fontSize = 19.sp,
+                    color = Color.White.copy(alpha = 0.82f),
+                    textAlign = TextAlign.Center
+                )
+            }
+
+            // The receipt. A worker walks away from here and cannot open
+            // the record again until it reaches the server, so every fact
+            // just filed under their name is repeated once, in full.
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.White.copy(alpha = 0.12f), RoundedCornerShape(18.dp))
+                    .padding(22.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                ReceiptRow(stringResource(R.string.confirm_project), project ?: "—")
+                ReceiptDivider()
+                ReceiptRow(
+                    label = stringResource(
+                        if (direction == TimeDirection.IN) R.string.confirm_time_in
+                        else R.string.confirm_time_out
+                    ),
+                    value = recordedAt?.atZone(AttendanceZone)?.format(ConfirmTime) ?: "—",
+                    mono = true
+                )
+                ReceiptDivider()
+                ReceiptRow(
+                    label = stringResource(R.string.confirm_date),
+                    value = recordedAt?.atZone(AttendanceZone)?.format(ConfirmDate) ?: "—"
+                )
+                if (direction == TimeDirection.OUT) {
+                    ReceiptDivider()
+                    ReceiptRow(
+                        label = stringResource(R.string.confirm_total),
+                        value = TotalHours.format(record?.totalMinutes),
+                        mono = true
+                    )
+                }
+                description.trim().takeIf { it.isNotEmpty() }?.let { note ->
+                    ReceiptDivider()
+                    ReceiptRow(stringResource(R.string.confirm_note), note)
+                }
+            }
+
             Text(
-                text = project,
-                style = MaterialTheme.typography.bodyLarge,
-                color = Color.White.copy(alpha = 0.9f),
+                text = stringResource(
+                    if (direction == TimeDirection.IN) R.string.confirm_next_in
+                    else R.string.confirm_next_out
+                ),
+                fontSize = 16.sp,
+                lineHeight = 24.sp,
+                color = Color.White.copy(alpha = 0.8f),
                 textAlign = TextAlign.Center
-            )
-        }
-        if (direction == TimeDirection.OUT) {
-            Text(
-                text = TotalHours.format(record?.totalMinutes),
-                fontFamily = MonoFamily,
-                fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.displaySmall,
-                color = Color.White
             )
         }
 
         Spacer(Modifier.height(Dimens.GapMedium))
 
+        // White on green, not a translucent panel: this is the only way
+        // off the screen and it should look like it.
         PrimaryActionButton(
-            english = stringResource(R.string.action_done),
-            tagalog = stringResource(R.string.action_done_tl),
+            english = stringResource(R.string.action_back_home),
+            tagalog = stringResource(R.string.action_back_home_tl),
             onClick = onDone,
-            container = Color.White.copy(alpha = 0.18f)
+            container = Color.White,
+            content = accent
+        )
+    }
+}
+
+/** One "label ....... value" line of the confirmation receipt. */
+@Composable
+private fun ReceiptRow(label: String, value: String, mono: Boolean = false) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalAlignment = Alignment.Bottom
+    ) {
+        Text(
+            text = label,
+            fontSize = 16.sp,
+            color = Color.White.copy(alpha = 0.75f)
+        )
+        Text(
+            text = value,
+            modifier = Modifier.weight(1f),
+            fontFamily = if (mono) MonoFamily else null,
+            fontSize = if (mono) 24.sp else 17.sp,
+            lineHeight = if (mono) 28.sp else 22.sp,
+            fontWeight = if (mono) FontWeight.Medium else FontWeight.Bold,
+            color = Color.White,
+            textAlign = TextAlign.End
         )
     }
 }
 
 @Composable
-internal fun StepHeading(english: String, tagalog: String) {
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(text = english, style = MaterialTheme.typography.headlineSmall)
-        Text(
-            text = tagalog,
-            style = MaterialTheme.typography.bodySmall,
-            color = TextMuted
-        )
-    }
+private fun ReceiptDivider() {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(1.dp)
+            .background(Color.White.copy(alpha = 0.18f))
+    )
 }
+

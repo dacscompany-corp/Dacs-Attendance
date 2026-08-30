@@ -113,11 +113,6 @@ fun CameraCapture(
         verticalArrangement = Arrangement.spacedBy(Dimens.GapMedium),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        StepHeading(
-            english = stringResource(R.string.flow_take_photo),
-            tagalog = stringResource(R.string.flow_take_photo_tl)
-        )
-
         Box(
             modifier = Modifier
                 .fillMaxWidth()

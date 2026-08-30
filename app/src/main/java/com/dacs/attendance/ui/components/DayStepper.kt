@@ -14,19 +14,24 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.dacs.attendance.R
+import com.dacs.attendance.ui.theme.BodyFamily
 import com.dacs.attendance.ui.theme.BorderDefault
 import com.dacs.attendance.ui.theme.Brown
 import com.dacs.attendance.ui.theme.Canvas
@@ -36,6 +41,7 @@ import com.dacs.attendance.ui.theme.GreenTint
 import com.dacs.attendance.ui.theme.Hairline
 import com.dacs.attendance.ui.theme.MonoFamily
 import com.dacs.attendance.ui.theme.TextDisabled
+import com.dacs.attendance.ui.theme.TextPrimary
 import com.dacs.attendance.ui.theme.TextMuted
 
 /** One of the three states in the day's 1-2-3 stepper. */
@@ -179,7 +185,68 @@ private fun Step(
     }
 }
 
-/** "Step 2 of 4" across the top of the flow screens. */
+/**
+ * The top of every flow screen: back, the question being asked, and how
+ * far in the worker is.
+ *
+ * One row rather than a counter stacked above a title, as the design
+ * draws it -- "STEP 4 / 4" is reference information and sits out of the
+ * way on the right, while the question gets the width it needs.
+ */
+@Composable
+fun FlowHeader(
+    step: Int,
+    total: Int,
+    english: String,
+    tagalog: String,
+    accent: Color,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(Dimens.GapSmall)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBack, modifier = Modifier.size(24.dp)) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.action_back),
+                    tint = TextPrimary
+                )
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = english,
+                    fontFamily = BodyFamily,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 19.sp,
+                    lineHeight = 23.sp
+                )
+                Text(
+                    text = tagalog,
+                    fontSize = 13.5.sp,
+                    lineHeight = 17.sp,
+                    color = TextMuted
+                )
+            }
+            Text(
+                text = "STEP $step / $total",
+                fontFamily = MonoFamily,
+                fontSize = 12.sp,
+                color = TextMuted
+            )
+        }
+
+        StepProgressBar(step = step, total = total, accent = accent)
+    }
+}
+
+/** The four bars under the flow header. */
 @Composable
 fun StepProgressBar(
     step: Int,
@@ -187,32 +254,23 @@ fun StepProgressBar(
     accent: Color,
     modifier: Modifier = Modifier
 ) {
-    Column(
+    Row(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(Dimens.GapSmall)
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        Text(
-            text = "STEP $step OF $total",
-            fontFamily = MonoFamily,
-            fontWeight = FontWeight.Bold,
-            style = MaterialTheme.typography.bodySmall,
-            color = TextMuted
-        )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            repeat(total) { index ->
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(6.dp)
-                        .background(
-                            color = if (index < step) accent else Hairline,
-                            shape = RoundedCornerShape(3.dp)
-                        )
-                )
-            }
+        repeat(total) { index ->
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(5.dp)
+                    .background(
+                        // BorderDefault, not Hairline: Hairline is the
+                        // canvas colour, so the unfilled segments vanished
+                        // into the background and the bar looked broken.
+                        color = if (index < step) accent else BorderDefault,
+                        shape = RoundedCornerShape(3.dp)
+                    )
+            )
         }
     }
 }

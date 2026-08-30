@@ -92,6 +92,8 @@
          with the screen; "Select project" only names it. -->
     <string name="flow_pick_project">Which project today?</string>
     <string name="flow_pick_project_tl">Saang project ka ngayon?</string>
+    <string name="flow_active_projects">Active projects</string>
+    <string name="flow_last_picked">Ito ang huling pinili mo</string>
     <string name="flow_no_projects">Walang project na naka-lista. Tawagan ang opisina.</string>
     <string name="flow_take_photo">Take your photo</string>
     <string name="flow_take_photo_tl">Kumuha ng litrato</string>
@@ -114,7 +116,23 @@
         <item>Site clearing</item>
     </string-array>
     <string name="flow_done_in">Time In recorded</string>
+    <string name="flow_done_in_tl">Naitala na ang iyong pasok</string>
     <string name="flow_done_out">Time Out recorded</string>
+    <string name="flow_done_out_tl">Naitala na ang iyong uwi</string>
+    <!-- The confirmation's receipt. A worker walks away from this screen
+         and cannot check it again until the record reaches the server, so
+         it repeats every fact that was just filed under their name. -->
+    <string name="confirm_project">Project</string>
+    <string name="confirm_time_in">Time In</string>
+    <string name="confirm_time_out">Time Out</string>
+    <string name="confirm_date">Date</string>
+    <string name="confirm_note">Note</string>
+    <string name="confirm_total">Total hours</string>
+    <string name="confirm_next_in">Pag-uwi mo, mag-time out ka at pipili ulit ng project.</string>
+    <string name="confirm_next_out">Tapos na ang araw mo. Salamat!</string>
+    <string name="action_back_home">BACK TO HOME</string>
+    <string name="action_back_home_tl">Bumalik sa home</string>
+    <string name="action_back">Bumalik</string>
     <string name="camera_permission_needed">Kailangan ng camera para sa litrato. Payagan ito sa Settings.</string>
 
     <string name="action_continue">CONTINUE</string>

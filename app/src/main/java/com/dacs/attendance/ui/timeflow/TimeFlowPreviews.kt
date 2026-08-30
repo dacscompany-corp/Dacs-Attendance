@@ -145,9 +145,11 @@ private fun ConfirmedInPreview() = AttendanceTheme {
             totalMinutes = null
         ),
         direction = TimeDirection.IN,
+        description = "Started construction work at Block A.",
         accent = Green,
         onDone = {},
-        modifier = Modifier.fillMaxSize().padding(Dimens.ScreenPadding)
+        // No ScreenPadding: the confirmation is full-bleed green.
+        modifier = Modifier.fillMaxSize()
     )
 }
 
@@ -163,8 +165,9 @@ private fun ConfirmedOutPreview() = AttendanceTheme {
             totalMinutes = 585
         ),
         direction = TimeDirection.OUT,
+        description = "",
         accent = Brown,
         onDone = {},
-        modifier = Modifier.fillMaxSize().padding(Dimens.ScreenPadding)
+        modifier = Modifier.fillMaxSize()
     )
 }

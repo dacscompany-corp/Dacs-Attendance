@@ -36,6 +36,8 @@ fun PrimaryActionButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     container: Color = Green,
+    /** Ink on the button. Inverted on the confirmation, which is white on green. */
+    content: Color = Color.White,
     enabled: Boolean = true,
     loading: Boolean = false
 ) {
@@ -48,13 +50,13 @@ fun PrimaryActionButton(
         shape = RoundedCornerShape(Dimens.RadiusLarge),
         colors = ButtonDefaults.buttonColors(
             containerColor = container,
-            contentColor = Color.White
+            contentColor = content
         )
     ) {
         if (loading) {
             CircularProgressIndicator(
                 modifier = Modifier.size(28.dp),
-                color = Color.White,
+                color = content,
                 strokeWidth = 3.dp
             )
         } else {
@@ -71,7 +73,7 @@ fun PrimaryActionButton(
                 Text(
                     text = tagalog,
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.82f)
+                    color = content.copy(alpha = 0.82f)
                 )
             }
         }
