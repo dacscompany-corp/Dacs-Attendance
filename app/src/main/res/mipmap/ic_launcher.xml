@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- API 24-25, which predate adaptive icons: the same green ground with
+     the logo on top, as a plain square.
+
+     This has to live in res/mipmap/, not res/drawable/. The manifest asks
+     for @mipmap/ic_launcher, and mipmap-anydpi-v26 only answers on API 26
+     and up, so without this file the icon has no match at all on the
+     older phones minSdk 24 exists to support. Reuses the adaptive
+     foreground so both paths inset the logo identically. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/dacs_green" />
+    <item android:drawable="@drawable/ic_launcher_foreground" />
+</layer-list>

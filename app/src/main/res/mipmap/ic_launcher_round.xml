@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The round variant for API 24-25 launchers. Same layers as
+     ic_launcher: pre-adaptive Android does not mask for us, so the round
+     launchers of that era simply get the square ground with the inset
+     logo, which is legible either way. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/dacs_green" />
+    <item android:drawable="@drawable/ic_launcher_foreground" />
+</layer-list>

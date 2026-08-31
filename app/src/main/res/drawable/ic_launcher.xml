@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Fallback for API 24-25, which predate adaptive icons: the same green
-     ground with the logo on top, as a plain square. Reuses the adaptive
-     foreground so both paths inset the logo identically. -->
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@color/dacs_green" />
-    <item android:drawable="@drawable/ic_launcher_foreground" />
-</layer-list>

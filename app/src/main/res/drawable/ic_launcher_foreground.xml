@@ -1,11 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- The logo, inset so it survives the adaptive-icon mask. Android crops
      an adaptive foreground to the inner ~66%, so anything drawn edge to
-     edge loses its corners on a circular-mask launcher. -->
+     edge loses its corners on a circular-mask launcher.
+
+     NO android:gravity here, and that is the point. A <bitmap> with
+     gravity="center" draws at its INTRINSIC size. dacs_logo.png is
+     2048x2048, so on a 432px icon canvas it was centred at four times
+     the canvas and the mask kept only the middle fifth. The default
+     gravity is "fill", which scales the bitmap into the inset box; the
+     source is square and so is the box, so nothing is distorted. -->
 <inset xmlns:android="http://schemas.android.com/apk/res/android"
     android:insetLeft="26%"
     android:insetTop="26%"
     android:insetRight="26%"
     android:insetBottom="26%">
-    <bitmap android:src="@drawable/dacs_logo" android:gravity="center" />
+    <bitmap
+        android:src="@drawable/dacs_logo"
+        android:filter="true" />
 </inset>
