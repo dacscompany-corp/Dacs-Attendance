@@ -94,6 +94,7 @@
     <string name="flow_pick_project_tl">Saang project ka ngayon?</string>
     <string name="flow_active_projects">Active projects</string>
     <string name="flow_last_picked">Ito ang huling pinili mo</string>
+    <string name="flow_missing_project">Kung wala ang project mo dito, sabihin sa admin. Sila ang nagdadagdag ng project.</string>
     <string name="flow_no_projects">Walang project na naka-lista. Tawagan ang opisina.</string>
     <string name="flow_take_photo">Take your photo</string>
     <string name="flow_take_photo_tl">Kumuha ng litrato</string>
@@ -135,16 +136,17 @@
     <string name="action_back">Bumalik</string>
     <string name="camera_permission_needed">Kailangan ng camera para sa litrato. Payagan ito sa Settings.</string>
 
-    <string name="action_continue">CONTINUE</string>
-    <string name="action_continue_tl">Magpatuloy</string>
+    <string name="action_continue">NEXT — TAKE PHOTO</string>
+    <string name="action_continue_tl">Susunod — kumuha ng litrato</string>
     <string name="action_take_photo">TAKE PHOTO</string>
     <string name="action_take_photo_tl">Kumuha ng litrato</string>
     <string name="action_use_photo">USE THIS PHOTO</string>
     <string name="action_use_photo_tl">Gamitin ito</string>
-    <string name="action_retake">RETAKE / Ulitin</string>
+    <string name="action_retake">RETAKE / Kunan ulit</string>
     <string name="action_submit_in">SUBMIT TIME IN</string>
     <string name="action_submit_out">SUBMIT TIME OUT</string>
-    <string name="action_submit_tl">Ipasa</string>
+    <string name="action_submit_in_tl">Ipasa ang pasok</string>
+    <string name="action_submit_out_tl">Ipasa ang uwi</string>
     <string name="action_done">DONE</string>
     <string name="action_done_tl">Tapos na</string>
 

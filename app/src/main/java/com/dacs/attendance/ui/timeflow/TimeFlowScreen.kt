@@ -264,6 +264,15 @@ internal fun PickProjectStep(
             }
         }
 
+        Text(
+            // Shown ALWAYS, not only when the list is empty: a worker
+            // whose site is missing from four listed projects needs to
+            // know whose job it is to add it.
+            text = stringResource(R.string.flow_missing_project),
+            style = MaterialTheme.typography.bodySmall,
+            color = TextMuted
+        )
+
         PrimaryActionButton(
             english = stringResource(R.string.action_continue),
             tagalog = stringResource(R.string.action_continue_tl),
@@ -463,7 +472,10 @@ internal fun DescribeStep(
               if (direction == TimeDirection.IN) R.string.action_submit_in
               else R.string.action_submit_out
           ),
-          tagalog = stringResource(R.string.action_submit_tl),
+          tagalog = stringResource(
+              if (direction == TimeDirection.IN) R.string.action_submit_in_tl
+              else R.string.action_submit_out_tl
+          ),
           onClick = onSubmit,
           container = accent,
           loading = submitting
