@@ -16,12 +16,19 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -33,6 +40,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
@@ -50,6 +59,7 @@ import com.dacs.attendance.ui.theme.Green
 import com.dacs.attendance.ui.theme.GreenTint
 import com.dacs.attendance.ui.theme.Hairline
 import com.dacs.attendance.ui.theme.MonoFamily
+import com.dacs.attendance.ui.theme.PreviewBackdrop
 import com.dacs.attendance.ui.theme.Surface
 import com.dacs.attendance.ui.theme.SurfaceRaised
 import com.dacs.attendance.ui.theme.TextDisabled
@@ -74,6 +84,10 @@ fun HistoryScreen(
     viewModel: HistoryViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+    // The photo a worker has tapped open, if any. Held here rather than
+    // per row so the viewer survives the row scrolling out from under it.
+    var viewing by remember { mutableStateOf<OpenPhoto?>(null) }
 
     Column(modifier = modifier.fillMaxSize().background(SurfaceRaised)) {
         // The same white bar the dashboard wears, so moving between tabs
@@ -144,9 +158,88 @@ fun HistoryScreen(
                     )
                 ) {
                     items(state.days, key = { it.workDate }) { day ->
-                        DayCard(day, viewModel::photoUrl)
+                        DayCard(day, viewModel::photoUrl, onOpenPhoto = { viewing = it })
                     }
                 }
+            }
+        }
+    }
+
+    viewing?.let { photo ->
+        PhotoViewer(photo = photo, onClose = { viewing = null })
+    }
+}
+
+/** A photo the worker has opened, with the two lines that identify it. */
+internal data class OpenPhoto(
+    val url: String,
+    val heading: String,
+    val subheading: String
+)
+
+/**
+ * One attendance photo, full screen.
+ *
+ * ContentScale.Fit, not Crop: the caption burned along the bottom of the
+ * image is the whole reason a worker opens this -- project, date and
+ * time, in the photo itself. Cropping to fill would cut off the one part
+ * that proves anything.
+ */
+@Composable
+private fun PhotoViewer(photo: OpenPhoto, onClose: () -> Unit) {
+    Dialog(
+        onDismissRequest = onClose,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        // NO tap-to-dismiss on the backdrop. Two reasons, and the second
+        // is the one that bit: a worker taps the photo to look closer at
+        // it, so closing on that tap is the opposite of what they meant --
+        // and the dialog was catching the RELEASE of the very tap that
+        // opened it, so it shut again before anything was drawn. Close is
+        // the X, or system back.
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(PreviewBackdrop)
+        ) {
+            AsyncImage(
+                model = photo.url,
+                contentDescription = photo.heading,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 12.dp, vertical = 72.dp)
+            )
+
+            Column(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(start = 20.dp, top = 20.dp, end = 64.dp)
+            ) {
+                Text(
+                    text = photo.heading,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color.White
+                )
+                Text(
+                    text = photo.subheading,
+                    fontSize = 14.sp,
+                    color = Color.White.copy(alpha = 0.75f)
+                )
+            }
+
+            IconButton(
+                onClick = onClose,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(12.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Close,
+                    contentDescription = stringResource(R.string.action_close),
+                    tint = Color.White
+                )
             }
         }
     }
@@ -178,7 +271,11 @@ private fun SpanChip(label: String, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun DayCard(day: HistoryDay, photoUrl: suspend (String?) -> String?) {
+private fun DayCard(
+    day: HistoryDay,
+    photoUrl: suspend (String?) -> String?,
+    onOpenPhoto: (OpenPhoto) -> Unit
+) {
     val record = day.record
 
     Column(
@@ -243,6 +340,8 @@ private fun DayCard(day: HistoryDay, photoUrl: suspend (String?) -> String?) {
                 time = record.timeInAt?.atZone(AttendanceZone)?.format(ClockTime),
                 photoPath = record.timeInPhotoPath,
                 photoUrl = photoUrl,
+                caption = day.date.format(DayHeading),
+                onOpenPhoto = onOpenPhoto,
                 modifier = Modifier.weight(1f)
             )
             Leg(
@@ -256,6 +355,8 @@ private fun DayCard(day: HistoryDay, photoUrl: suspend (String?) -> String?) {
                 time = record.timeOutAt?.atZone(AttendanceZone)?.format(ClockTime),
                 photoPath = record.timeOutPhotoPath,
                 photoUrl = photoUrl,
+                caption = day.date.format(DayHeading),
+                onOpenPhoto = onOpenPhoto,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -291,6 +392,8 @@ private fun Leg(
     time: String?,
     photoPath: String?,
     photoUrl: suspend (String?) -> String?,
+    caption: String,
+    onOpenPhoto: (OpenPhoto) -> Unit,
     modifier: Modifier = Modifier
 ) {
     // Resolved as the row composes, so a month of history costs only the
@@ -303,15 +406,28 @@ private fun Leg(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (url != null) {
+        val open = url
+        if (open != null) {
             AsyncImage(
-                model = url,
-                contentDescription = null,
+                model = open,
+                // Says what tapping does, not just what the image is.
+                contentDescription = stringResource(
+                    R.string.history_open_photo, label, time ?: ""
+                ),
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .size(44.dp)
                     .clip(RoundedCornerShape(9.dp))
                     .background(Hairline)
+                    .clickable {
+                        onOpenPhoto(
+                            OpenPhoto(
+                                url = open,
+                                heading = "$label · ${project ?: ""}".trim(' ', 0xB7.toChar()),
+                                subheading = listOfNotNull(caption, time).joinToString(" · ")
+                            )
+                        )
+                    }
             )
         } else {
             // No photo yet, or none to have: offline, on a leg that has

@@ -188,6 +188,7 @@
     <string name="history_in">IN</string>
     <string name="history_out">OUT</string>
     <string name="history_total">Total hours</string>
+    <string name="history_open_photo">Open the %1$s photo taken at %2$s</string>
     <string name="status_complete">Complete</string>
     <string name="status_working">Working</string>
     <string name="status_abandoned">Not closed</string>
