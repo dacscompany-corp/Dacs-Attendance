@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import com.dacs.attendance.ui.theme.BodyFamily
 import com.dacs.attendance.ui.theme.Dimens
@@ -39,7 +40,13 @@ fun PrimaryActionButton(
     /** Ink on the button. Inverted on the confirmation, which is white on green. */
     content: Color = Color.White,
     enabled: Boolean = true,
-    loading: Boolean = false
+    loading: Boolean = false,
+    /**
+     * 22sp suits a button with the screen to itself. Where two sit side
+     * by side the design drops to 18, and at 22 "USE THIS PHOTO" wraps
+     * to two lines and drags its Tagalog off-centre with it.
+     */
+    englishSize: TextUnit = 22.sp
 ) {
     Button(
         onClick = onClick,
@@ -68,7 +75,8 @@ fun PrimaryActionButton(
                     text = english,
                     fontFamily = BodyFamily,
                     fontWeight = FontWeight.ExtraBold,
-                    fontSize = 22.sp
+                    fontSize = englishSize,
+                    maxLines = 1
                 )
                 Text(
                     text = tagalog,

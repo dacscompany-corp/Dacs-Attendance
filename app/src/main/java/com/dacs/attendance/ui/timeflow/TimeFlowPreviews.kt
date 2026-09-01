@@ -81,7 +81,13 @@ private fun PickProjectEmptyPreview() = FlowFrame(1, Green) {
 private fun CheckPhotoPreview() = FlowFrame(3, Green) {
     // No file: the frame renders empty, which is exactly what a failed
     // decode would look like on a device.
-    CheckPhotoStep(photoPath = null, accent = Green, onRetake = {}, onAccept = {})
+    CheckPhotoStep(
+        photoPath = null,
+        capturedAt = Instant.parse("2026-08-18T23:45:00Z"),
+        accent = Green,
+        onRetake = {},
+        onAccept = {}
+    )
 }
 
 @Preview(name = "07 · Description", showBackground = true, widthDp = 390, heightDp = 844)

@@ -48,5 +48,18 @@ fun photoOverlayCaptionLines(projectName: String, capturedAt: Instant): Pair<Str
         projectName.take(MAX_PROJECT_CHARS).trimEnd() + "…"
     }
 
-    return project to "${local.format(OverlayDate)} · ${local.format(OverlayTime)}"
+    return project to photoOverlayStamp(capturedAt)
+}
+
+/**
+ * Just the stamp: "1 Sep 2026 · 3:00 PM".
+ *
+ * The check-photo step shows this over the shot the worker is being
+ * asked to approve. They already chose the project a screen ago; what
+ * they cannot otherwise verify is that the phone's clock agrees with
+ * the moment they are standing in.
+ */
+fun photoOverlayStamp(capturedAt: Instant): String {
+    val local = capturedAt.atZone(AttendanceZone)
+    return "${local.format(OverlayDate)} · ${local.format(OverlayTime)}"
 }

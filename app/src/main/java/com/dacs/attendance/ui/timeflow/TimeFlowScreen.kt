@@ -29,6 +29,9 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -39,6 +42,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringArrayResource
@@ -61,6 +65,7 @@ import com.dacs.attendance.domain.AttendanceZone
 import com.dacs.attendance.domain.TimeDirection
 import com.dacs.attendance.domain.TotalHours
 import com.dacs.attendance.domain.isChipSelected
+import com.dacs.attendance.domain.photoOverlayStamp
 import com.dacs.attendance.domain.toggleDescriptionChip
 import com.dacs.attendance.ui.components.AttendanceFailureNotice
 import com.dacs.attendance.ui.components.PrimaryActionButton
@@ -183,6 +188,7 @@ fun TimeFlowScreen(
 
             FlowStep.CheckPhoto -> CheckPhotoStep(
                 photoPath = state.photo?.file?.absolutePath,
+                capturedAt = state.photo?.capturedAt,
                 accent = accent,
                 onRetake = viewModel::onRetakePhoto,
                 onAccept = viewModel::onPhotoAccepted,
@@ -351,6 +357,7 @@ private fun ProjectRow(
 @Composable
 internal fun CheckPhotoStep(
     photoPath: String?,
+    capturedAt: java.time.Instant?,
     accent: Color,
     onRetake: () -> Unit,
     onAccept: () -> Unit,
@@ -360,30 +367,88 @@ internal fun CheckPhotoStep(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(Dimens.GapMedium)
     ) {
-        // Coil, not a hand-rolled BitmapFactory decode: the file carries
-        // EXIF rotation and half the phones in the field would show a
-        // sideways selfie without it.
-        AsyncImage(
-            model = photoPath,
-            contentDescription = stringResource(R.string.flow_check_photo),
-            contentScale = ContentScale.Crop,
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
-                .background(Field, RoundedCornerShape(Dimens.RadiusLarge))
-        )
+                .clip(RoundedCornerShape(18.dp))
+                .background(Field)
+        ) {
+            // Coil, not a hand-rolled BitmapFactory decode: the file
+            // carries EXIF rotation and half the phones in the field
+            // would show a sideways selfie without it.
+            AsyncImage(
+                model = photoPath,
+                contentDescription = stringResource(R.string.flow_check_photo),
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
 
-        PrimaryActionButton(
-            english = stringResource(R.string.action_use_photo),
-            tagalog = stringResource(R.string.action_use_photo_tl),
-            onClick = onAccept,
-            container = accent
-        )
-        TextButton(onClick = onRetake, modifier = Modifier.fillMaxWidth()) {
-            Text(
-                text = stringResource(R.string.action_retake),
-                color = TextSecondary,
-                fontWeight = FontWeight.Bold
+            // The stamp, over the shot being approved. Without it this
+            // screen asks "is this clear?" about something that does not
+            // look like what gets filed -- the stored photo carries a
+            // burned-in caption, and until now it appeared for the first
+            // time AFTER the worker had already approved the picture.
+            capturedAt?.let { at ->
+                Text(
+                    text = photoOverlayStamp(at),
+                    fontFamily = MonoFamily,
+                    fontSize = 12.sp,
+                    color = Color.White,
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .fillMaxWidth()
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(Color.Transparent, Color.Black.copy(alpha = 0.66f))
+                            )
+                        )
+                        .padding(horizontal = 16.dp, vertical = 14.dp)
+                )
+            }
+        }
+
+        // Side by side, as the design lays them out, with USE THIS PHOTO
+        // the wider of the two. Retake is a real button rather than a
+        // text link: it is half of a genuine either/or, and on this
+        // screen a blurry photo is the commonest reason to be here.
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            OutlinedButton(
+                onClick = onRetake,
+                modifier = Modifier
+                    .weight(1f)
+                    .defaultMinSize(minHeight = 70.dp),
+                shape = RoundedCornerShape(15.dp),
+                border = BorderStroke(2.dp, BorderDefault),
+                colors = ButtonDefaults.outlinedButtonColors(containerColor = Surface)
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = stringResource(R.string.action_retake_en),
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = TextSecondary
+                    )
+                    Text(
+                        text = stringResource(R.string.action_retake_tl),
+                        fontSize = 13.sp,
+                        color = TextMuted
+                    )
+                }
+            }
+
+            PrimaryActionButton(
+                english = stringResource(R.string.action_use_photo),
+                tagalog = stringResource(R.string.action_use_photo_tl),
+                onClick = onAccept,
+                container = accent,
+                englishSize = 18.sp,
+                modifier = Modifier
+                    .weight(1.35f)
+                    .defaultMinSize(minHeight = 70.dp)
             )
         }
     }

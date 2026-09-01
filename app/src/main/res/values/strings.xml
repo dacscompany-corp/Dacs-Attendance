@@ -146,7 +146,8 @@
     <string name="action_take_photo_tl">Kumuha ng litrato</string>
     <string name="action_use_photo">USE THIS PHOTO</string>
     <string name="action_use_photo_tl">Gamitin ito</string>
-    <string name="action_retake">RETAKE / Kunan ulit</string>
+    <string name="action_retake_en">RETAKE</string>
+    <string name="action_retake_tl">Kunan ulit</string>
     <string name="action_submit_in">SUBMIT TIME IN</string>
     <string name="action_submit_out">SUBMIT TIME OUT</string>
     <string name="action_submit_in_tl">Ipasa ang pasok</string>
