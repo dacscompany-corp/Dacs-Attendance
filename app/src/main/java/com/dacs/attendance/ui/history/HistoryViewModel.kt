@@ -2,6 +2,7 @@ package com.dacs.attendance.ui.history
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.dacs.attendance.data.repo.AttendancePhotos
 import com.dacs.attendance.data.repo.AttendanceRepository
 import com.dacs.attendance.domain.AttendanceFailure
 import com.dacs.attendance.domain.HistoryDay
@@ -29,8 +30,18 @@ data class HistoryUiState(
 /** Screen 10 — the worker's own attendance, week or month. */
 @HiltViewModel
 class HistoryViewModel @Inject constructor(
-    private val attendance: AttendanceRepository
+    private val attendance: AttendanceRepository,
+    private val photos: AttendancePhotos
 ) : ViewModel() {
+
+    /**
+     * A link for one attendance photo, or null.
+     *
+     * Called from the row as it scrolls into view rather than resolved
+     * for the whole month up front: a worker who opens History and
+     * closes it should pay for the three days they actually saw.
+     */
+    suspend fun photoUrl(path: String?): String? = photos.signedUrl(path)
 
     private val _uiState = MutableStateFlow(HistoryUiState())
     val uiState: StateFlow<HistoryUiState> = _uiState.asStateFlow()

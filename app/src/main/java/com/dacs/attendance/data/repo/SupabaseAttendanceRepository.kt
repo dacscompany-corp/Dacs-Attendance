@@ -19,7 +19,8 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
-private const val PHOTO_BUCKET = "attendance"
+/** The private bucket every attendance photo lives in (migration 0050). */
+internal const val PHOTO_BUCKET = "attendance"
 
 @Singleton
 class SupabaseProjectRepository @Inject constructor(

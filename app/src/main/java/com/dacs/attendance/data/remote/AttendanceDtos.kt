@@ -33,7 +33,12 @@ data class AttendanceRecordRow(
     @SerialName("timeout_at") val timeOutAt: String? = null,
     @SerialName("timein_project_name") val timeInProjectName: String? = null,
     @SerialName("timeout_project_name") val timeOutProjectName: String? = null,
-    @SerialName("total_minutes") val totalMinutes: Int? = null
+    @SerialName("total_minutes") val totalMinutes: Int? = null,
+    // Storage object PATHS, never URLs. A path is stable and cheap to
+    // carry; the signed URL that actually fetches bytes is minted only
+    // when a row is on screen.
+    @SerialName("timein_photo_path") val timeInPhotoPath: String? = null,
+    @SerialName("timeout_photo_path") val timeOutPhotoPath: String? = null
 ) {
     fun toDomain() = AttendanceRecord(
         id = id,
@@ -43,13 +48,16 @@ data class AttendanceRecordRow(
         timeOutAt = timeOutAt?.toInstantOrNull(),
         timeInProjectName = timeInProjectName,
         timeOutProjectName = timeOutProjectName,
-        totalMinutes = totalMinutes
+        totalMinutes = totalMinutes,
+        timeInPhotoPath = timeInPhotoPath,
+        timeOutPhotoPath = timeOutPhotoPath
     )
 
     companion object {
         const val COLUMNS =
             "id,work_date,status,timein_at,timeout_at," +
-                "timein_project_name,timeout_project_name,total_minutes"
+                "timein_project_name,timeout_project_name,total_minutes," +
+                "timein_photo_path,timeout_photo_path"
     }
 }
 

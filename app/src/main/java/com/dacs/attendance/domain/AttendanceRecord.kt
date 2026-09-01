@@ -41,6 +41,14 @@ data class AttendanceRecord(
     val timeOutProjectName: String?,
     val totalMinutes: Int?,
     /**
+     * Storage paths for the two photos, when the server sent them.
+     * Null off the local mirror -- which is correct: with no signal
+     * there is nothing to fetch anyway, and History falls back to the
+     * plain colour bar rather than an empty grey square.
+     */
+    val timeInPhotoPath: String? = null,
+    val timeOutPhotoPath: String? = null,
+    /**
      * True while this day is still only on the phone. Shown to the
      * worker as "will sync" so they know it is safe to walk away --
      * NOT as a warning, because there is nothing for them to fix.

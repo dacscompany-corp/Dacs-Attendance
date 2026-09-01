@@ -135,6 +135,12 @@ dependencies {
     // Decodes the captured file honouring its EXIF rotation. Doing it by
     // hand gets a sideways selfie on half the phones in the field.
     implementation(libs.coil.compose)
+    // Coil 3 ships NO network fetcher in coil-compose: an http(s) model
+    // silently loads nothing without one. Local File models worked, so
+    // this stayed invisible until History asked for a signed URL.
+    // OkHttp rather than the ktor fetcher because ktor-client-okhttp is
+    // already the engine here -- this adds a fetcher, not a second stack.
+    implementation(libs.coil.network.okhttp)
     // CameraX writes rotation to EXIF rather than rotating pixels.
     implementation(libs.androidx.exifinterface)
 

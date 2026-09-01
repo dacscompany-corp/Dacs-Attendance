@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -20,8 +21,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -31,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil3.compose.AsyncImage
 import com.dacs.attendance.R
 import com.dacs.attendance.domain.AttendanceStatus
 import com.dacs.attendance.domain.AttendanceZone
@@ -138,7 +143,9 @@ fun HistoryScreen(
                         bottom = Dimens.GapMedium
                     )
                 ) {
-                    items(state.days, key = { it.workDate }) { day -> DayCard(day) }
+                    items(state.days, key = { it.workDate }) { day ->
+                        DayCard(day, viewModel::photoUrl)
+                    }
                 }
             }
         }
@@ -171,7 +178,7 @@ private fun SpanChip(label: String, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun DayCard(day: HistoryDay) {
+private fun DayCard(day: HistoryDay, photoUrl: suspend (String?) -> String?) {
     val record = day.record
 
     Column(
@@ -234,6 +241,8 @@ private fun DayCard(day: HistoryDay) {
                 label = stringResource(R.string.history_in),
                 project = record.timeInProjectName,
                 time = record.timeInAt?.atZone(AttendanceZone)?.format(ClockTime),
+                photoPath = record.timeInPhotoPath,
+                photoUrl = photoUrl,
                 modifier = Modifier.weight(1f)
             )
             Leg(
@@ -245,6 +254,8 @@ private fun DayCard(day: HistoryDay) {
                 // record that does not exist.
                 project = if (record.timeOutAt == null) null else record.timeOutProjectName,
                 time = record.timeOutAt?.atZone(AttendanceZone)?.format(ClockTime),
+                photoPath = record.timeOutPhotoPath,
+                photoUrl = photoUrl,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -278,25 +289,45 @@ private fun Leg(
     label: String,
     project: String?,
     time: String?,
+    photoPath: String?,
+    photoUrl: suspend (String?) -> String?,
     modifier: Modifier = Modifier
 ) {
+    // Resolved as the row composes, so a month of history costs only the
+    // days the worker actually scrolled past.
+    val url by produceState<String?>(initialValue = null, photoPath) {
+        value = photoUrl(photoPath)
+    }
     Row(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // A colour bar rather than the design's photo thumbnail: showing
-        // the photo means downloading it, and a month of history is two
-        // downloads a day on a metered plan. See the note in ARCHITECTURE.
-        Box(
-            Modifier
-                .width(6.dp)
-                .height(44.dp)
-                .background(
-                    if (time == null) Hairline else accent,
-                    RoundedCornerShape(3.dp)
-                )
-        )
+        if (url != null) {
+            AsyncImage(
+                model = url,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(9.dp))
+                    .background(Hairline)
+            )
+        } else {
+            // No photo yet, or none to have: offline, on a leg that has
+            // not happened, or while the link is still being minted. The
+            // bar carries the same IN/OUT reading, so nothing about the
+            // row becomes unreadable.
+            Box(
+                Modifier
+                    .width(6.dp)
+                    .height(44.dp)
+                    .background(
+                        if (time == null) Hairline else accent,
+                        RoundedCornerShape(3.dp)
+                    )
+            )
+        }
         Column {
             Text(
                 text = "$label · ${project ?: "—"}",
