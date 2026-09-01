@@ -84,6 +84,7 @@ private fun CheckPhotoPreview() = FlowFrame(3, Green) {
     CheckPhotoStep(
         photoPath = null,
         capturedAt = Instant.parse("2026-08-18T23:45:00Z"),
+        projectName = "ABC Building Project",
         accent = Green,
         onRetake = {},
         onAccept = {}

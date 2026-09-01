@@ -50,6 +50,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
@@ -65,7 +66,7 @@ import com.dacs.attendance.domain.AttendanceZone
 import com.dacs.attendance.domain.TimeDirection
 import com.dacs.attendance.domain.TotalHours
 import com.dacs.attendance.domain.isChipSelected
-import com.dacs.attendance.domain.photoOverlayStamp
+import com.dacs.attendance.domain.photoOverlayCaptionLines
 import com.dacs.attendance.domain.toggleDescriptionChip
 import com.dacs.attendance.ui.components.AttendanceFailureNotice
 import com.dacs.attendance.ui.components.PrimaryActionButton
@@ -189,6 +190,7 @@ fun TimeFlowScreen(
             FlowStep.CheckPhoto -> CheckPhotoStep(
                 photoPath = state.photo?.file?.absolutePath,
                 capturedAt = state.photo?.capturedAt,
+                projectName = state.selectedProject?.name,
                 accent = accent,
                 onRetake = viewModel::onRetakePhoto,
                 onAccept = viewModel::onPhotoAccepted,
@@ -358,6 +360,7 @@ private fun ProjectRow(
 internal fun CheckPhotoStep(
     photoPath: String?,
     capturedAt: java.time.Instant?,
+    projectName: String?,
     accent: Color,
     onRetake: () -> Unit,
     onAccept: () -> Unit,
@@ -384,17 +387,17 @@ internal fun CheckPhotoStep(
                 modifier = Modifier.fillMaxSize()
             )
 
-            // The stamp, over the shot being approved. Without it this
-            // screen asks "is this clear?" about something that does not
-            // look like what gets filed -- the stored photo carries a
-            // burned-in caption, and until now it appeared for the first
-            // time AFTER the worker had already approved the picture.
+            // EXACTLY what will be burned into the file: project on top,
+            // stamp under it, the same two lines the camera previewed one
+            // screen ago. The design's mock shows only the timestamp here,
+            // and that is the one place this deliberately departs from it
+            // -- "is this photo clear?" should be asked about the picture
+            // as it will be FILED, and the project is half of what the
+            // caption claims. Showing less here than at the shutter also
+            // made the two screens disagree about the same photo.
             capturedAt?.let { at ->
-                Text(
-                    text = photoOverlayStamp(at),
-                    fontFamily = MonoFamily,
-                    fontSize = 12.sp,
-                    color = Color.White,
+                val (name, stamp) = photoOverlayCaptionLines(projectName.orEmpty(), at)
+                Column(
                     modifier = Modifier
                         .align(Alignment.BottomStart)
                         .fillMaxWidth()
@@ -403,8 +406,27 @@ internal fun CheckPhotoStep(
                                 listOf(Color.Transparent, Color.Black.copy(alpha = 0.66f))
                             )
                         )
-                        .padding(horizontal = 16.dp, vertical = 14.dp)
-                )
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    if (name.isNotBlank()) {
+                        Text(
+                            text = name,
+                            fontFamily = MonoFamily,
+                            fontSize = 12.sp,
+                            color = Color.White,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    Text(
+                        text = stamp,
+                        fontFamily = MonoFamily,
+                        fontSize = 12.sp,
+                        color = Color.White,
+                        maxLines = 1
+                    )
+                }
             }
         }
 
