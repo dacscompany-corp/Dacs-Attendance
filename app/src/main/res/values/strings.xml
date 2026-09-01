@@ -85,6 +85,10 @@
     <string name="timed_in_at">Timed in at %1$s</string>
     <string name="will_sync">Naka-save sa telepono. Ise-send kapag may signal.</string>
     <string name="hours_total">TOTAL HOURS</string>
+    <!-- "hanggang ngayon" (up to now) is true only while the day is
+         still running. On a closed day it reads as though the clock
+         is still going. -->
+    <string name="hours_total_tl">Kabuuang oras ngayong araw</string>
     <string name="day_complete">Tapos na ang araw mo. Salamat!</string>
 
     <!-- The four-step flow. The headings are QUESTIONS, as the design

@@ -422,7 +422,13 @@ private fun HoursCard(hours: String, complete: Boolean) {
                 color = TextMuted
             )
             Text(
-                text = stringResource(R.string.hours_so_far_tl),
+                // Switches WITH the English above it. Leaving the Tagalog
+                // on "hanggang ngayon" while the English said TOTAL HOURS
+                // told a worker whose day was closed that the clock was
+                // still running.
+                text = stringResource(
+                    if (complete) R.string.hours_total_tl else R.string.hours_so_far_tl
+                ),
                 fontSize = 14.sp,
                 color = TextMuted
             )
