@@ -73,7 +73,9 @@
     <!-- Shared actions -->
     <string name="action_retry">TRY AGAIN</string>
     <string name="action_retry_tl">Subukan ulit</string>
-    <string name="action_log_out">LOG OUT</string>
+    <!-- Sentence case, unlike the shouted primary actions. On the
+         profile this is the exit, not the thing you came to do. -->
+    <string name="action_log_out">Log out</string>
     <string name="action_log_out_tl">Mag-log out</string>
     <!-- Dashboard, B3 -->
     <string name="greeting_afternoon">Magandang hapon,</string>

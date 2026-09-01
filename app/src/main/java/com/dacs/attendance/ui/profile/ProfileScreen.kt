@@ -11,19 +11,24 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Key
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -38,9 +43,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -57,6 +64,8 @@ import com.dacs.attendance.ui.theme.DangerBorder
 import com.dacs.attendance.ui.theme.DangerTint
 import com.dacs.attendance.ui.theme.Dimens
 import com.dacs.attendance.ui.theme.Green
+import com.dacs.attendance.ui.theme.Surface
+import com.dacs.attendance.ui.theme.SurfaceRaised
 import com.dacs.attendance.ui.theme.GreenTint
 import com.dacs.attendance.ui.theme.Hairline
 import com.dacs.attendance.ui.theme.MonoFamily
@@ -108,94 +117,138 @@ internal fun ProfileContent(
     var showTerms by remember { mutableStateOf(false) }
     var showPassword by remember { mutableStateOf(false) }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(Dimens.ScreenPadding),
-        verticalArrangement = Arrangement.spacedBy(Dimens.GapMedium)
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(Dimens.GapMedium)
+    Column(modifier = modifier.fillMaxSize().background(SurfaceRaised)) {
+        // Centred, as the design draws it: this screen answers "who am I
+        // signed in as", and a centred portrait says that faster than a
+        // row of details reading left to right.
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Surface)
+                .padding(start = 24.dp, end = 24.dp, top = 22.dp, bottom = 26.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(11.dp)
         ) {
             Box(
                 modifier = Modifier
-                    .size(62.dp)
+                    .size(84.dp)
                     .background(GreenTint, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = worker.initials,
-                    style = MaterialTheme.typography.headlineSmall,
+                    fontSize = 30.sp,
+                    fontWeight = FontWeight.ExtraBold,
                     color = Green
                 )
             }
-            Column {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = worker.displayName ?: worker.firstName,
-                    style = MaterialTheme.typography.headlineSmall
+                    style = MaterialTheme.typography.headlineSmall,
+                    textAlign = TextAlign.Center
                 )
                 Text(
+                    // The design reads "Mason · ABC Construction". The
+                    // company is the OWNER's name, which this app does not
+                    // fetch, so the position stands alone rather than
+                    // repeating the worker number already in the card.
                     text = worker.position ?: "—",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = TextMuted
+                    fontSize = 15.sp,
+                    color = TextMuted,
+                    textAlign = TextAlign.Center
+                )
+            }
+            if ((worker.status ?: "active") == "active") {
+                Text(
+                    text = stringResource(R.string.profile_active),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Green,
+                    modifier = Modifier
+                        .background(GreenTint, RoundedCornerShape(999.dp))
+                        .padding(horizontal = 13.dp, vertical = 5.dp)
                 )
             }
         }
-
-        if ((worker.status ?: "active") == "active") {
-            Text(
-                text = stringResource(R.string.profile_active),
-                style = MaterialTheme.typography.bodySmall,
-                fontWeight = FontWeight.Bold,
-                color = Green,
-                modifier = Modifier
-                    .background(GreenTint, RoundedCornerShape(999.dp))
-                    .padding(horizontal = 12.dp, vertical = 5.dp)
-            )
-        }
+        Box(Modifier.fillMaxWidth().height(1.dp).background(BorderDefault))
 
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .border(1.dp, BorderDefault, RoundedCornerShape(Dimens.RadiusLarge))
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            InfoRow(stringResource(R.string.label_email), worker.email ?: "—")
-            Divider()
-            InfoRow(stringResource(R.string.profile_position), worker.position ?: "—")
-            Divider()
-            InfoRow(stringResource(R.string.profile_worker_id), worker.workerIdLabel, mono = true)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Surface, RoundedCornerShape(Dimens.RadiusLarge))
+                    .border(1.dp, BorderDefault, RoundedCornerShape(Dimens.RadiusLarge))
+            ) {
+                InfoRow(stringResource(R.string.label_email), worker.email ?: "—")
+                Divider()
+                InfoRow(stringResource(R.string.profile_position), worker.position ?: "—")
+                Divider()
+                InfoRow(stringResource(R.string.profile_worker_id), worker.workerIdLabel, mono = true)
+            }
+
+            RowButton(
+                title = stringResource(R.string.profile_change_password),
+                subtitle = stringResource(R.string.profile_change_password_tl),
+                icon = Icons.Filled.Key,
+                // Green, unlike the Terms row's grey: this is the only
+                // thing on the screen a worker can actually change.
+                iconTint = Green,
+                onClick = { showPassword = true }
+            )
+
+            // The Terms are readable after acceptance, on purpose: a worker
+            // who agreed to something should be able to go back and read it
+            // without asking anyone.
+            RowButton(
+                title = stringResource(R.string.terms_title),
+                subtitle = state.acceptedAt
+                    ?.let { stringResource(R.string.profile_terms_accepted, acceptedDate(it)) }
+                    // Not yet known -- offline on a phone that has never
+                    // fetched it. The row still opens the Terms; it just
+                    // does not claim a date it cannot stand behind.
+                    ?: stringResource(R.string.profile_terms_sub),
+                icon = Icons.Filled.Description,
+                iconTint = TextMuted,
+                onClick = { showTerms = true }
+            )
+
+            Spacer(Modifier.weight(1f))
+
+            // Outlined, not a filled red slab. Logging out is not the
+            // primary action here and should not read as one -- it is the
+            // exit, sitting at the foot of the screen where the design
+            // puts it, in red so it is unmistakable when wanted.
+            OutlinedButton(
+                onClick = onSignOut,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .defaultMinSize(minHeight = 66.dp),
+                shape = RoundedCornerShape(14.dp),
+                border = BorderStroke(1.5.dp, DangerBorder),
+                colors = ButtonDefaults.outlinedButtonColors(containerColor = Surface)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.Logout,
+                    contentDescription = null,
+                    tint = Danger,
+                    modifier = Modifier.size(21.dp)
+                )
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    text = stringResource(R.string.action_log_out),
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Danger
+                )
+            }
         }
-
-        RowButton(
-            title = stringResource(R.string.profile_change_password),
-            subtitle = stringResource(R.string.profile_change_password_tl),
-            icon = Icons.Filled.Key,
-            onClick = { showPassword = true }
-        )
-
-        // The Terms are readable after acceptance, on purpose: a worker
-        // who agreed to something should be able to go back and read it
-        // without asking anyone.
-        RowButton(
-            title = stringResource(R.string.terms_title),
-            subtitle = state.acceptedAt
-                ?.let { stringResource(R.string.profile_terms_accepted, acceptedDate(it)) }
-                // Not yet known -- offline on a phone that has never
-                // fetched it. The row still opens the Terms; it just does
-                // not claim a date it cannot stand behind.
-                ?: stringResource(R.string.profile_terms_sub),
-            icon = Icons.Filled.Description,
-            onClick = { showTerms = true }
-        )
-
-        PrimaryActionButton(
-            english = stringResource(R.string.action_log_out),
-            tagalog = stringResource(R.string.action_log_out_tl),
-            onClick = onSignOut,
-            container = Danger
-        )
     }
 
     if (showTerms) {
@@ -232,7 +285,7 @@ private fun ChangePasswordDialog(
     var visible by remember { mutableStateOf(false) }
 
     Dialog(onDismissRequest = onClose) {
-        Surface(
+        androidx.compose.material3.Surface(
             shape = RoundedCornerShape(Dimens.RadiusLarge),
             color = MaterialTheme.colorScheme.surface
         ) {
@@ -422,15 +475,14 @@ private fun InfoRow(label: String, value: String, mono: Boolean = false) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .defaultMinSize(minHeight = Dimens.SecondaryRow)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 18.dp, vertical = 13.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text = label, style = MaterialTheme.typography.bodyMedium, color = TextMuted)
+        Text(text = label, fontSize = 15.sp, color = TextMuted)
         Text(
             text = value,
-            style = MaterialTheme.typography.bodyLarge,
+            fontSize = 15.sp,
             fontWeight = FontWeight.SemiBold,
             fontFamily = if (mono) MonoFamily else null
         )
@@ -449,15 +501,17 @@ private fun RowButton(
     title: String,
     subtitle: String,
     icon: ImageVector,
+    iconTint: Color,
     onClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, BorderDefault, RoundedCornerShape(Dimens.RadiusLarge))
+            .background(Surface, RoundedCornerShape(14.dp))
+            .border(1.5.dp, BorderDefault, RoundedCornerShape(14.dp))
             .clickable(onClick = onClick)
-            .defaultMinSize(minHeight = Dimens.SecondaryRow)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .defaultMinSize(minHeight = 66.dp)
+            .padding(horizontal = 18.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(Dimens.GapMedium),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -466,25 +520,21 @@ private fun RowButton(
             // The title beside it already says what this is; a screen
             // reader repeating it would only slow the row down.
             contentDescription = null,
-            tint = TextMuted,
+            tint = iconTint,
             modifier = Modifier.size(22.dp)
         )
         Column(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = TextMuted)
+            Text(text = title, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Text(text = subtitle, fontSize = 13.5.sp, color = TextMuted)
         }
         Icon(
             imageVector = Icons.Filled.ChevronRight,
             contentDescription = null,
             tint = TextDisabled,
-            modifier = Modifier.size(22.dp)
+            modifier = Modifier.size(20.dp)
         )
     }
 }
