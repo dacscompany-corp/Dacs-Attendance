@@ -141,6 +141,7 @@ dependencies {
     // OkHttp rather than the ktor fetcher because ktor-client-okhttp is
     // already the engine here -- this adds a fetcher, not a second stack.
     implementation(libs.coil.network.okhttp)
+    implementation(libs.play.services.location)
     // CameraX writes rotation to EXIF rather than rotating pixels.
     implementation(libs.androidx.exifinterface)
 

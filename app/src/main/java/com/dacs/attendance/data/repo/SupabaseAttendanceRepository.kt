@@ -114,6 +114,10 @@ class SupabaseAttendanceRepository @Inject constructor(
                     put("p_lng", request.longitude)
                     put("p_accuracy_m", request.accuracyMetres)
                     put("p_was_offline", request.wasOffline)
+                    // New in 0069, and defaulted server-side, so an older
+                    // build that omits them still resolves.
+                    put("p_is_mock", request.isMock)
+                    put("p_permission_denied", request.permissionDenied)
                 }
             ).decodeAs<AttendanceRecordRow>().toDomain()
         }

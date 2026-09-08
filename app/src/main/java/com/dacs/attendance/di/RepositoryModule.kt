@@ -1,5 +1,7 @@
 package com.dacs.attendance.di
 
+import com.dacs.attendance.data.local.LocationProvider
+import com.dacs.attendance.data.local.LocationSource
 import com.dacs.attendance.data.repo.AttendanceRepository
 import com.dacs.attendance.data.repo.AuthRepository
 import com.dacs.attendance.data.repo.ProjectRepository
@@ -46,4 +48,8 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindRewardRepository(impl: SupabaseRewardRepository): RewardRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindLocationSource(impl: LocationProvider): LocationSource
 }

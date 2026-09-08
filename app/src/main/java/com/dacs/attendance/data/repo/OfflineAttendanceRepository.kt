@@ -98,6 +98,13 @@ class OfflineAttendanceRepository @Inject constructor(
                     // definition. Getting this wrong makes an offline
                     // record look like a tampered clock to the admin.
                     wasOffline = !connectivity.isOnline(),
+                    // Frozen at the shutter, exactly like capturedAt. The
+                    // upload happens later and from wherever the worker
+                    // happens to be standing then; re-reading the location
+                    // at send time would record the wrong place entirely.
+                    isMock = request.isMock,
+                    permissionDenied = request.permissionDenied,
+                    locationStatus = request.locationStatus,
                     createdAt = System.currentTimeMillis()
                 )
             )

@@ -10,8 +10,28 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
-    <!-- Coarse location is OPTIONAL corroborating metadata, never a gate.
-         A denial must never block a worker from recording attendance. -->
+    <!-- Location IS a gate now, and this comment used to say the exact
+         opposite. Migrations 0068/0069 verify attendance against a project
+         geofence, so the earlier promise (a denial must never block a
+         worker from recording attendance) is no longer true, and must not
+         be left standing as though it were.
+
+         WHAT ACTUALLY BLOCKS, and what does not:
+           Outside the project radius, a mock provider, or a refused
+           permission, and the attendance is REFUSED.
+
+           A vague fix, or no fix at all, and it is RECORDED and flagged.
+           Uncertainty is never a refusal. A cheap phone under scaffolding
+           that cannot hold a fix must still be able to record a day, since
+           with the weekly reward attached to a missing day, refusing there
+           would cost a worker the bonus for their employer choice of
+           hardware.
+
+         FINE, not COARSE: coarse is accurate to roughly 1 to 3 km, which
+         cannot tell a 150 m site fence from the next barangay. Android 12
+         and later lets the worker grant approximate ONLY even when fine is
+         requested; that degrades to a flag, not a lockout. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
     <uses-feature android:name="android.hardware.camera" android:required="true" />

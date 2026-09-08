@@ -4,6 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dacs.attendance.data.repo.AttendanceRepository
 import com.dacs.attendance.data.repo.ProjectRepository
+import com.dacs.attendance.data.local.LocationSource
+import com.dacs.attendance.domain.LocationStatus
+import com.dacs.attendance.domain.checkLocation
+import com.dacs.attendance.domain.locationRefuses
 import com.dacs.attendance.data.repo.SubmissionRequest
 import com.dacs.attendance.domain.AttendanceFailure
 import com.dacs.attendance.domain.AttendanceProject
@@ -64,7 +68,8 @@ data class TimeFlowUiState(
 @HiltViewModel
 class TimeFlowViewModel @Inject constructor(
     private val attendance: AttendanceRepository,
-    private val projects: ProjectRepository
+    private val projects: ProjectRepository,
+    private val locationProvider: LocationSource
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(TimeFlowUiState())
@@ -164,6 +169,49 @@ class TimeFlowViewModel @Inject constructor(
 
         _uiState.update { it.copy(submitting = true, failure = null) }
         viewModelScope.launch {
+            // ── The location reading, taken now rather than at capture.
+            //
+            // A few seconds after the shutter, still standing in the same
+            // place. Taking it here rather than inside the camera step
+            // keeps the shutter instant -- a worker should not wait on
+            // GPS to see their own photo.
+            val fix = locationProvider.currentFix()
+
+            // ── WHY fence = null AND requireGeofence = false HERE.
+            //
+            // The device does not yet cache each project's geofence, so
+            // it cannot judge the RADIUS -- and pretending otherwise
+            // would refuse workers over a fence this phone has never
+            // seen. Passing no fence yields ProjectGeofenceUnavailable,
+            // which with requireGeofence = false does not refuse.
+            //
+            // What that leaves is exactly the safe subset: a mock
+            // provider and a refused permission, neither of which needs
+            // a fence to detect and both of which the worker can act on
+            // immediately. Everything else -- including whether they are
+            // actually inside the radius -- the SERVER decides, against
+            // the effective-dated fence only it holds (0069).
+            //
+            // This is the real rule with honest inputs, not a second
+            // weaker copy of it. When the geofence cache lands, passing
+            // a real fence turns the radius check on with no change
+            // here.
+            val check = checkLocation(
+                fix = fix,
+                fence = null,
+                // The documented default (§36 / migration 0068). Only
+                // affects which label a flagged record carries, since
+                // LowAccuracy never refuses.
+                minAccuracyMetres = 50.0
+            )
+
+            if (locationRefuses(check.status, requireGeofence = false)) {
+                _uiState.update {
+                    it.copy(submitting = false, failure = check.status.toFailure())
+                }
+                return@launch
+            }
+
             val result = attendance.submit(
                 SubmissionRequest(
                     direction = state.direction,
@@ -172,7 +220,13 @@ class TimeFlowViewModel @Inject constructor(
                     capturedAt = photo.capturedAt,
                     photo = photo.file,
                     description = state.description.trim().takeIf { it.isNotEmpty() },
-                    eventId = eventId
+                    eventId = eventId,
+                    latitude = fix.latitude,
+                    longitude = fix.longitude,
+                    accuracyMetres = fix.accuracyMetres,
+                    isMock = fix.isMock,
+                    permissionDenied = fix.permissionDenied,
+                    locationStatus = check.status.wire
                 )
             )
             _uiState.update { current ->
@@ -198,4 +252,22 @@ class TimeFlowViewModel @Inject constructor(
             }
         }
     }
+}
+
+/**
+ * The device's reading, as a refusal the screen can already render.
+ *
+ * Only the statuses [locationRefuses] actually refuses need a mapping.
+ * The rest never reach here -- they are recorded and flagged, which is
+ * the whole point of the rule.
+ */
+private fun LocationStatus.toFailure(): AttendanceFailure = when (this) {
+    LocationStatus.MockLocation -> AttendanceFailure.MockLocation
+    LocationStatus.PermissionDenied -> AttendanceFailure.LocationPermissionDenied
+    LocationStatus.OutsideRadius -> AttendanceFailure.OutsideRadius
+    LocationStatus.ProjectGeofenceUnavailable -> AttendanceFailure.ProjectGeofenceUnavailable
+    // Never refused, so never mapped to a failure a worker has to read.
+    LocationStatus.Verified,
+    LocationStatus.LowAccuracy,
+    LocationStatus.LocationUnavailable -> AttendanceFailure.Unexpected
 }

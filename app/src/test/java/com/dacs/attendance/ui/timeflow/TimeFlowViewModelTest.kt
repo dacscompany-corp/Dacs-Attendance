@@ -77,11 +77,28 @@ class TimeFlowViewModelTest {
         override suspend fun today(): Result<AttendanceRecord?> = Result.success(null)
     }
 
+    /**
+     * A phone standing on the site with a good fix, unless a test says
+     * otherwise. The default has to be the ordinary case: every existing
+     * test in this file is about the four-step flow, not about GPS, and
+     * they must not start failing because a fake refused them.
+     */
+    private class FakeLocation(
+        private val fix: com.dacs.attendance.domain.DeviceFix =
+            com.dacs.attendance.domain.DeviceFix(
+                latitude = 14.5995, longitude = 120.9842, accuracyMetres = 8.0
+            )
+    ) : com.dacs.attendance.data.local.LocationSource {
+        override fun hasPermission() = !fix.permissionDenied
+        override suspend fun currentFix() = fix
+    }
+
     private fun viewModel(
         attendance: AttendanceRepository,
         projectRepo: ProjectRepository = FakeProjects(Result.success(projects)),
-        direction: TimeDirection = TimeDirection.IN
-    ) = TimeFlowViewModel(attendance, projectRepo).also { it.start(direction) }
+        direction: TimeDirection = TimeDirection.IN,
+        location: com.dacs.attendance.data.local.LocationSource = FakeLocation()
+    ) = TimeFlowViewModel(attendance, projectRepo, location).also { it.start(direction) }
 
     private fun photoFile() = File.createTempFile("photo", ".jpg").apply { deleteOnExit() }
 
@@ -314,5 +331,112 @@ class TimeFlowViewModelTest {
 
         assertEquals(AttendanceFailure.NoConnection, vm.uiState.value.failure)
         assertTrue(vm.uiState.value.projects.isEmpty())
+    }
+
+    // ── Location at the shutter (0068 / 0069) ───────────────────────
+
+    private fun kotlinx.coroutines.test.TestScope.submitWith(
+        location: com.dacs.attendance.data.local.LocationSource,
+        attendance: FakeAttendance = FakeAttendance(mutableListOf(Result.success(savedRecord)))
+    ): TimeFlowViewModel {
+        val vm = viewModel(attendance, location = location)
+        advanceUntilIdle()
+        vm.onProjectSelected(projects.first().key)
+        vm.onProjectConfirmed()
+        vm.onPhotoTaken(photoFile(), Instant.parse("2026-09-08T00:15:00Z"))
+        vm.onPhotoAccepted()
+        vm.onSubmit()
+        advanceUntilIdle()
+        return vm
+    }
+
+    @Test
+    fun `a mock location is refused before anything is queued`() = runTest {
+        // Never accidental, and the worker can act on it: turn the mock
+        // app off. Queuing it would only earn a refusal from the server
+        // later, after they had been told it saved.
+        val attendance = FakeAttendance(mutableListOf(Result.success(savedRecord)))
+        val vm = submitWith(
+            FakeLocation(
+                com.dacs.attendance.domain.DeviceFix(
+                    latitude = 14.5995, longitude = 120.9842,
+                    accuracyMetres = 5.0, isMock = true
+                )
+            ),
+            attendance
+        )
+
+        assertEquals(AttendanceFailure.MockLocation, vm.uiState.value.failure)
+        assertFalse(vm.uiState.value.submitting)
+        assertTrue("nothing may be submitted", attendance.requests.isEmpty())
+    }
+
+    @Test
+    fun `a refused permission is refused here, not by the server`() = runTest {
+        val attendance = FakeAttendance(mutableListOf(Result.success(savedRecord)))
+        val vm = submitWith(
+            FakeLocation(com.dacs.attendance.domain.DeviceFix(permissionDenied = true)),
+            attendance
+        )
+
+        assertEquals(AttendanceFailure.LocationPermissionDenied, vm.uiState.value.failure)
+        assertTrue(attendance.requests.isEmpty())
+    }
+
+    @Test
+    fun `no fix at all still records the day`() = runTest {
+        // THE most important of these. A cheap phone under scaffolding
+        // that cannot hold a fix must still be able to record attendance:
+        // the day is flagged unverified, not refused. With the weekly
+        // reward attached to a missing day, refusing here would cost a
+        // worker the bonus for their employer's choice of hardware.
+        val attendance = FakeAttendance(mutableListOf(Result.success(savedRecord)))
+        val vm = submitWith(
+            FakeLocation(com.dacs.attendance.domain.DeviceFix()),
+            attendance
+        )
+
+        assertNull(vm.uiState.value.failure)
+        assertEquals(FlowStep.Confirmed, vm.uiState.value.step)
+        assertEquals(1, attendance.requests.size)
+    }
+
+    @Test
+    fun `a vague fix still records the day`() = runTest {
+        // Standing on site, but the phone only knows it to 300 m. The
+        // phone's failure, not the worker's.
+        val attendance = FakeAttendance(mutableListOf(Result.success(savedRecord)))
+        val vm = submitWith(
+            FakeLocation(
+                com.dacs.attendance.domain.DeviceFix(
+                    latitude = 14.5995, longitude = 120.9842, accuracyMetres = 300.0
+                )
+            ),
+            attendance
+        )
+
+        assertNull(vm.uiState.value.failure)
+        assertEquals(1, attendance.requests.size)
+    }
+
+    @Test
+    fun `the fix reaches the submission, and so does what only the device knows`() = runTest {
+        val attendance = FakeAttendance(mutableListOf(Result.success(savedRecord)))
+        submitWith(
+            FakeLocation(
+                com.dacs.attendance.domain.DeviceFix(
+                    latitude = 14.5995, longitude = 120.9842, accuracyMetres = 8.0
+                )
+            ),
+            attendance
+        )
+
+        val sent = attendance.requests.single()
+        assertEquals(14.5995, sent.latitude!!, 0.00001)
+        assertEquals(120.9842, sent.longitude!!, 0.00001)
+        assertEquals(8.0, sent.accuracyMetres!!, 0.00001)
+        // The two facts the server cannot observe for itself.
+        assertFalse(sent.isMock)
+        assertFalse(sent.permissionDenied)
     }
 }

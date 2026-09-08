@@ -108,7 +108,9 @@ class SubmissionWorker @AssistedInject constructor(
                 longitude = row.longitude,
                 accuracyMetres = row.accuracyMetres,
                 // Recorded for the admin, never shown to the worker.
-                wasOffline = row.wasOffline
+                wasOffline = row.wasOffline,
+                isMock = row.isMock,
+                permissionDenied = row.permissionDenied
             )
         )
 

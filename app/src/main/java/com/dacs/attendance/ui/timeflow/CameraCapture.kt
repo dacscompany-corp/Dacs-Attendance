@@ -102,12 +102,41 @@ fun CameraStep(
     var capturing by remember { mutableStateOf(false) }
     val imageCapture = remember { ImageCapture.Builder().build() }
 
+    // ── CAMERA AND LOCATION ARE ASKED FOR TOGETHER, here.
+    //
+    // Location is not used until SUBMIT, three steps later. It is
+    // requested at the camera because that is where a worker already
+    // expects to grant something, and because asking again on the last
+    // screen -- with a photo taken and a description typed -- is where a
+    // denial costs the most.
+    //
+    // It is NOT optional any more. Since 0069 a refused permission
+    // refuses the attendance, so an app that never asked would refuse
+    // every Time In on every device: the manifest entry alone grants
+    // nothing on Android 6 and later.
+    //
+    // The CAMERA result is the only one that gates this screen. A worker
+    // who declines location can still take the photo and reach Describe,
+    // where the refusal is explained in words they can act on, rather
+    // than being stopped here with a camera they never got to use.
     val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { allowed -> granted = allowed }
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { results -> granted = results[Manifest.permission.CAMERA] ?: granted }
 
     LaunchedEffect(Unit) {
-        if (!granted) permissionLauncher.launch(Manifest.permission.CAMERA)
+        val wanted = buildList {
+            if (!granted) add(Manifest.permission.CAMERA)
+            if (!context.hasLocationPermission()) {
+                // FINE first: coarse is accurate to roughly 1-3 km and
+                // cannot tell a 150 m site fence from the next barangay.
+                // Android 12 and later may still hand back approximate
+                // only, which degrades to a flagged record rather than a
+                // refusal.
+                add(Manifest.permission.ACCESS_FINE_LOCATION)
+                add(Manifest.permission.ACCESS_COARSE_LOCATION)
+            }
+        }
+        if (wanted.isNotEmpty()) permissionLauncher.launch(wanted.toTypedArray())
     }
 
     // The preview caption has to move, or it is a lie by the time the
@@ -360,6 +389,13 @@ private fun ShutterRow(enabled: Boolean, capturing: Boolean, onClick: () -> Unit
 
 private fun Context.hasCameraPermission(): Boolean =
     ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) ==
+        PackageManager.PERMISSION_GRANTED
+
+/** Either grade counts. Coarse is poor, but poor is flagged, not refused. */
+private fun Context.hasLocationPermission(): Boolean =
+    ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) ==
+        PackageManager.PERMISSION_GRANTED ||
+        ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) ==
         PackageManager.PERMISSION_GRANTED
 
 private fun bindCamera(

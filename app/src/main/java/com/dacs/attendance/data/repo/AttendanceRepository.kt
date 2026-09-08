@@ -36,7 +36,24 @@ data class SubmissionRequest(
     val latitude: Double? = null,
     val longitude: Double? = null,
     val accuracyMetres: Double? = null,
-    val wasOffline: Boolean = false
+    val wasOffline: Boolean = false,
+    /**
+     * The two things the SERVER cannot observe.
+     *
+     * A refused permission and a failed fix both arrive as null
+     * coordinates, and only the device can tell them apart -- one is a
+     * choice and the other is not, and 0069 refuses the first while
+     * flagging the second. Everything else about the location (the
+     * distance, the fence, the verdict) the server recomputes for
+     * itself, because a client can lie about all of it.
+     */
+    val isMock: Boolean = false,
+    val permissionDenied: Boolean = false,
+    /**
+     * The device's own reading, for the queue to explain itself on
+     * screen. Never uploaded -- the server computes its own.
+     */
+    val locationStatus: String? = null
 )
 
 interface AttendanceRepository {
