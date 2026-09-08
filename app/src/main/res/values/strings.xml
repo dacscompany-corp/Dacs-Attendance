@@ -250,4 +250,9 @@
     <string name="att_geofence_missing">This project has no location set yet. Tell your admin — it cannot be fixed from the app.</string>
     <string name="att_geofence_missing_tl">Wala pang nakatakdang lokasyon ang proyektong ito. Sabihan ang admin — hindi ito maaayos mula sa app.</string>
 
+
+    <!-- The action on a permanently denied location permission. Bilingual
+         because it sits inside a failure notice, not on a screen. -->
+    <string name="action_open_settings">Open Settings · Buksan ang Settings</string>
+
 </resources>

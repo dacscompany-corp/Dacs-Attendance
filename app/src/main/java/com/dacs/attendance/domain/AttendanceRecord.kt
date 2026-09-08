@@ -32,7 +32,16 @@ data class AttendanceProject(
     val system: ProjectSystem,
     /** A uuid since 0059. It is only unique WITHIN [system]. */
     val id: String,
-    val name: String
+    val name: String,
+    /**
+     * The site's fence, as the device last cached it.
+     *
+     * Null means the phone has never seen one, NOT that the project has
+     * none: the server keeps fences effective-dated and re-checks against
+     * whichever was in force at capture. A null here simply means the
+     * device cannot pre-judge the radius and leaves it to the server.
+     */
+    val geofence: Geofence? = null
 ) {
     /**
      * The pair as one string, for list keys and equality checks.

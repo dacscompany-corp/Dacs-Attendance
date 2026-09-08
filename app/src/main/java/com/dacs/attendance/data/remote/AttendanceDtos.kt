@@ -3,6 +3,7 @@ package com.dacs.attendance.data.remote
 import com.dacs.attendance.domain.AttendanceProject
 import com.dacs.attendance.domain.AttendanceRecord
 import com.dacs.attendance.domain.AttendanceStatus
+import com.dacs.attendance.domain.Geofence
 import com.dacs.attendance.domain.ProjectSystem
 import com.dacs.attendance.domain.RewardDay
 import com.dacs.attendance.domain.RewardDayStatus
@@ -139,3 +140,43 @@ data class RewardDayRow(
 data class RewardConfigRow(
     @SerialName("reward_amount") val rewardAmount: Double? = null
 )
+
+/**
+ * One row of `attendance_project_geofence` (migration 0068).
+ *
+ * Read straight off the table -- workers hold a select policy on their
+ * own owner's fences, precisely so the device can pre-check at the
+ * shutter with no signal.
+ *
+ * The table is effective-dated and append-only, so a project may have
+ * several rows. The device keeps only the newest, which is all it can
+ * act on; resolving the fence that was in force at a PAST capture is the
+ * server's job and needs history the phone does not carry.
+ */
+@Serializable
+data class GeofenceRow(
+    @SerialName("project_system") val system: String,
+    @SerialName("folder_id") val folderId: String? = null,
+    @SerialName("pm_project_id") val pmProjectId: String? = null,
+    @SerialName("effective_from") val effectiveFrom: String? = null,
+    val latitude: Double,
+    val longitude: Double,
+    @SerialName("radius_m") val radiusM: Double,
+    val enabled: Boolean = true
+) {
+    /** The (system, id) pair, which is how a project is identified since 0059. */
+    val projectKey: String? get() = (folderId ?: pmProjectId)?.let { "$system:$it" }
+
+    fun toDomain() = Geofence(
+        latitude = latitude,
+        longitude = longitude,
+        radiusMetres = radiusM,
+        enabled = enabled
+    )
+
+    companion object {
+        const val COLUMNS =
+            "project_system,folder_id,pm_project_id,effective_from," +
+                "latitude,longitude,radius_m,enabled"
+    }
+}

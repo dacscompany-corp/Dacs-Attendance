@@ -1,5 +1,8 @@
 package com.dacs.attendance.ui.components
 
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -12,6 +15,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -56,6 +60,33 @@ fun AttendanceFailureNotice(
             style = MaterialTheme.typography.bodySmall,
             color = Danger
         )
+        // ── The one refusal a worker can fix themselves.
+        //
+        // Android's "Don't ask again" makes the permission prompt
+        // permanently unavailable to the app, so there is nothing left to
+        // request -- the only route back is the system settings page.
+        // Without this the notice is advice a worker cannot act on, which
+        // is the same as no notice at all.
+        if (failure == AttendanceFailure.LocationPermissionDenied) {
+            val context = LocalContext.current
+            TextButton(
+                onClick = {
+                    context.startActivity(
+                        Intent(
+                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                            Uri.fromParts("package", context.packageName, null)
+                        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                }
+            ) {
+                Text(
+                    text = stringResource(R.string.action_open_settings),
+                    fontWeight = FontWeight.Bold,
+                    color = Danger
+                )
+            }
+        }
+
         if (onRetry != null && failure.worthRetrying) {
             TextButton(onClick = onRetry) {
                 Text(

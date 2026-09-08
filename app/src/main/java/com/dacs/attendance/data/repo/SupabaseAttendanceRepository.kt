@@ -1,6 +1,7 @@
 package com.dacs.attendance.data.repo
 
 import com.dacs.attendance.data.remote.AttendanceRecordRow
+import com.dacs.attendance.data.remote.GeofenceRow
 import com.dacs.attendance.data.remote.ProjectRow
 import com.dacs.attendance.domain.AttendanceProject
 import com.dacs.attendance.domain.AttendanceRecord
@@ -52,7 +53,39 @@ class SupabaseProjectRepository @Inject constructor(
                 .rpc(PROJECTS_FOR_WORKER)
                 .decodeList<ProjectRow>()
                 .mapNotNull { it.toDomain() }
+                .let { attachGeofences(it) }
         }
+
+    /**
+     * Fences are fetched SEPARATELY and merged, rather than being added
+     * to the RPC's three columns.
+     *
+     * 0059 gave attendance_projects_for_worker() exactly three columns on
+     * purpose: workers have no select on `folders`, whose contract values
+     * are owner-confidential, and a three-column function cannot leak a
+     * fourth. Widening it to carry coordinates would reopen that.
+     *
+     * A failure here is swallowed: the projects are what the picker
+     * needs, and a missing fence costs a pre-check, not the flow. The
+     * server still verifies.
+     */
+    private suspend fun attachGeofences(
+        projects: List<AttendanceProject>
+    ): List<AttendanceProject> = runCatchingExceptCancellation {
+        val newest = client.postgrest
+            .from("attendance_project_geofence")
+            .select(Columns.raw(GeofenceRow.COLUMNS))
+            .decodeList<GeofenceRow>()
+            // Append-only history: keep the latest row per project, which
+            // is the only one the device can act on.
+            .filter { it.projectKey != null }
+            .sortedBy { it.effectiveFrom.orEmpty() }
+            .associateBy { it.projectKey!! }
+
+        projects.map { project ->
+            newest[project.key]?.let { project.copy(geofence = it.toDomain()) } ?: project
+        }
+    }.getOrDefault(projects)
 }
 
 @Singleton

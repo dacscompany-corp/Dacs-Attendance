@@ -439,4 +439,70 @@ class TimeFlowViewModelTest {
         assertFalse(sent.isMock)
         assertFalse(sent.permissionDenied)
     }
+
+    @Test
+    fun `a worker far from the site is refused at the gate, not days later`() = runTest {
+        // The reason the device caches the fence at all. Offline, this is
+        // the difference between being told now and being shown "saved",
+        // then having it refused when the queue drains.
+        val fenced = projects.map {
+            it.copy(
+                geofence = com.dacs.attendance.domain.Geofence(
+                    latitude = 14.5995, longitude = 120.9842, radiusMetres = 150.0
+                )
+            )
+        }
+        val attendance = FakeAttendance(mutableListOf(Result.success(savedRecord)))
+        val vm = viewModel(
+            attendance,
+            projectRepo = FakeProjects(Result.success(fenced)),
+            // ~1.1 km north of the fence centre.
+            location = FakeLocation(
+                com.dacs.attendance.domain.DeviceFix(
+                    latitude = 14.6095, longitude = 120.9842, accuracyMetres = 8.0
+                )
+            )
+        )
+        advanceUntilIdle()
+        vm.onProjectSelected(fenced.first().key)
+        vm.onProjectConfirmed()
+        vm.onPhotoTaken(photoFile(), Instant.parse("2026-09-08T00:15:00Z"))
+        vm.onPhotoAccepted()
+        vm.onSubmit()
+        advanceUntilIdle()
+
+        assertEquals(AttendanceFailure.OutsideRadius, vm.uiState.value.failure)
+        assertTrue("nothing may be queued", attendance.requests.isEmpty())
+    }
+
+    @Test
+    fun `standing on the site with a fence submits normally`() = runTest {
+        val fenced = projects.map {
+            it.copy(
+                geofence = com.dacs.attendance.domain.Geofence(
+                    latitude = 14.5995, longitude = 120.9842, radiusMetres = 150.0
+                )
+            )
+        }
+        val attendance = FakeAttendance(mutableListOf(Result.success(savedRecord)))
+        val vm = viewModel(
+            attendance,
+            projectRepo = FakeProjects(Result.success(fenced)),
+            location = FakeLocation(
+                com.dacs.attendance.domain.DeviceFix(
+                    latitude = 14.5995, longitude = 120.9842, accuracyMetres = 8.0
+                )
+            )
+        )
+        advanceUntilIdle()
+        vm.onProjectSelected(fenced.first().key)
+        vm.onProjectConfirmed()
+        vm.onPhotoTaken(photoFile(), Instant.parse("2026-09-08T00:15:00Z"))
+        vm.onPhotoAccepted()
+        vm.onSubmit()
+        advanceUntilIdle()
+
+        assertNull(vm.uiState.value.failure)
+        assertEquals(1, attendance.requests.size)
+    }
 }

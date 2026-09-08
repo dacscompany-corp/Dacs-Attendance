@@ -177,34 +177,34 @@ class TimeFlowViewModel @Inject constructor(
             // GPS to see their own photo.
             val fix = locationProvider.currentFix()
 
-            // ── WHY fence = null AND requireGeofence = false HERE.
+            // ── The pre-check, with the fence the device cached.
             //
-            // The device does not yet cache each project's geofence, so
-            // it cannot judge the RADIUS -- and pretending otherwise
-            // would refuse workers over a fence this phone has never
-            // seen. Passing no fence yields ProjectGeofenceUnavailable,
-            // which with requireGeofence = false does not refuse.
-            //
-            // What that leaves is exactly the safe subset: a mock
-            // provider and a refused permission, neither of which needs
-            // a fence to detect and both of which the worker can act on
-            // immediately. Everything else -- including whether they are
-            // actually inside the radius -- the SERVER decides, against
-            // the effective-dated fence only it holds (0069).
-            //
-            // This is the real rule with honest inputs, not a second
-            // weaker copy of it. When the geofence cache lands, passing
-            // a real fence turns the radius check on with no change
-            // here.
+            // This is what lets an OFFLINE worker be told at the gate
+            // that they are in the wrong place, instead of being shown
+            // "saved" and having it refused days later when the queue
+            // drains. It is the same rule the server applies (0069),
+            // deliberately, so the two cannot disagree.
             val check = checkLocation(
                 fix = fix,
-                fence = null,
+                // The cached fence, when the device has one. Null still
+                // means "cannot pre-judge the radius" and still does not
+                // refuse -- see requireGeofence below.
+                fence = project.geofence,
                 // The documented default (§36 / migration 0068). Only
                 // affects which label a flagged record carries, since
                 // LowAccuracy never refuses.
                 minAccuracyMetres = 50.0
             )
 
+            // requireGeofence stays FALSE on the device, always.
+            //
+            // Whether a fence is mandatory is the server's ruling, made
+            // against config the phone does not hold, and this cache can
+            // be empty or stale for reasons that are nobody's fault -- a
+            // worker who has not been online since the site was
+            // configured, most obviously. Refusing on a missing fence
+            // here would punish them for that. The server refuses when it
+            // should; the device only refuses what it can see for itself.
             if (locationRefuses(check.status, requireGeofence = false)) {
                 _uiState.update {
                     it.copy(submitting = false, failure = check.status.toFailure())

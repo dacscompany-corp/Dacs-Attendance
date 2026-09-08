@@ -9,6 +9,7 @@ import com.dacs.attendance.data.local.AttendanceDatabase
 import com.dacs.attendance.domain.AttendanceProject
 import com.dacs.attendance.domain.AttendanceRecord
 import com.dacs.attendance.domain.AttendanceStatus
+import com.dacs.attendance.domain.Geofence
 import com.dacs.attendance.domain.ProjectSystem
 import com.dacs.attendance.domain.TimeDirection
 import com.dacs.attendance.domain.TodayDecision
@@ -260,7 +261,16 @@ class OfflineProjectRepository @Inject constructor(
                 database.cachedProjects().replaceAll(
                     workerId,
                     projects.map {
-                        CachedProjectEntity(workerId, it.system.wire, it.id, it.name)
+                        CachedProjectEntity(
+                            workerId = workerId,
+                            system = it.system.wire,
+                            id = it.id,
+                            name = it.name,
+                            geofenceLat = it.geofence?.latitude,
+                            geofenceLng = it.geofence?.longitude,
+                            geofenceRadiusM = it.geofence?.radiusMetres,
+                            geofenceEnabled = it.geofence?.enabled ?: true
+                        )
                     }
                 )
             }
@@ -272,7 +282,29 @@ class OfflineProjectRepository @Inject constructor(
         // submit against just moves the failure four screens later.
         val cached = database.cachedProjects().all(workerId)
             .mapNotNull { row ->
-                ProjectSystem.of(row.system)?.let { AttendanceProject(it, row.id, row.name) }
+                ProjectSystem.of(row.system)?.let { system ->
+                    AttendanceProject(
+                        system = system,
+                        id = row.id,
+                        name = row.name,
+                        // Rebuilt only when all three parts are present.
+                        // A half-cached fence would be a circle nobody
+                        // drew, and the pre-check would judge against it.
+                        geofence = if (row.geofenceLat != null &&
+                            row.geofenceLng != null &&
+                            row.geofenceRadiusM != null
+                        ) {
+                            Geofence(
+                                latitude = row.geofenceLat,
+                                longitude = row.geofenceLng,
+                                radiusMetres = row.geofenceRadiusM,
+                                enabled = row.geofenceEnabled
+                            )
+                        } else {
+                            null
+                        }
+                    )
+                }
             }
         return if (cached.isNotEmpty()) Result.success(cached) else fresh
     }
