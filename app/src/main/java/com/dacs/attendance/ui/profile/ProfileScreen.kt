@@ -7,27 +7,21 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Key
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -56,33 +50,36 @@ import com.dacs.attendance.domain.AttendanceTerms
 import com.dacs.attendance.domain.AttendanceZone
 import com.dacs.attendance.domain.PasswordChangeFailure
 import com.dacs.attendance.domain.WorkerProfile
+import com.dacs.attendance.ui.components.AppCard
+import com.dacs.attendance.ui.components.CardDivider
 import com.dacs.attendance.ui.components.LabeledField
 import com.dacs.attendance.ui.components.PrimaryActionButton
+import com.dacs.attendance.ui.components.StatusPill
 import com.dacs.attendance.ui.theme.BorderDefault
+import com.dacs.attendance.ui.theme.Canvas
 import com.dacs.attendance.ui.theme.Danger
 import com.dacs.attendance.ui.theme.DangerBorder
 import com.dacs.attendance.ui.theme.DangerTint
 import com.dacs.attendance.ui.theme.Dimens
 import com.dacs.attendance.ui.theme.Green
-import com.dacs.attendance.ui.theme.Surface
-import com.dacs.attendance.ui.theme.SurfaceRaised
 import com.dacs.attendance.ui.theme.GreenTint
-import com.dacs.attendance.ui.theme.Hairline
 import com.dacs.attendance.ui.theme.MonoFamily
-import com.dacs.attendance.ui.theme.TextDisabled
+import com.dacs.attendance.ui.theme.Surface
+import com.dacs.attendance.ui.theme.TextFaint
 import com.dacs.attendance.ui.theme.TextMuted
 import com.dacs.attendance.ui.theme.TextSecondary
 import java.time.Instant
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 /**
- * Screen 11 — "My profile".
+ * "My profile".
  *
- * Everything here is READ-ONLY except logging out. A worker cannot edit
- * their own name, position or worker number: those are snapshotted onto
- * every attendance record, and letting the subject of a record rewrite
- * the identity on it would undermine the evidence. Corrections go
- * through the admin, in Users → Navigator.
+ * Everything here is READ-ONLY except the password and logging out. A
+ * worker cannot edit their own name, position or worker number: those are
+ * snapshotted onto every attendance record, and letting the subject of a
+ * record rewrite the identity on it would undermine the evidence.
+ * Corrections go through the admin.
  */
 @Composable
 fun ProfileScreen(
@@ -117,85 +114,80 @@ internal fun ProfileContent(
     var showTerms by remember { mutableStateOf(false) }
     var showPassword by remember { mutableStateOf(false) }
 
-    Column(modifier = modifier.fillMaxSize().background(SurfaceRaised)) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Canvas)
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = Dimens.ScreenPadding)
+            .padding(top = Dimens.GapSmall, bottom = Dimens.GapLarge),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
         // Centred, as the design draws it: this screen answers "who am I
         // signed in as", and a centred portrait says that faster than a
         // row of details reading left to right.
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Surface)
-                .padding(start = 24.dp, end = 24.dp, top = 22.dp, bottom = 26.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(11.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(84.dp)
-                    .background(GreenTint, CircleShape),
-                contentAlignment = Alignment.Center
+        AppCard(radius = Dimens.RadiusPanel, padding = 20.dp) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text(
-                    text = worker.initials,
-                    fontSize = 30.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Green
-                )
-            }
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = worker.displayName ?: worker.firstName,
-                    style = MaterialTheme.typography.headlineSmall,
-                    textAlign = TextAlign.Center
-                )
-                Text(
-                    // The design reads "Mason · ABC Construction". The
-                    // company is the OWNER's name, which this app does not
-                    // fetch, so the position stands alone rather than
-                    // repeating the worker number already in the card.
-                    text = worker.position ?: "—",
-                    fontSize = 15.sp,
-                    color = TextMuted,
-                    textAlign = TextAlign.Center
-                )
-            }
-            if ((worker.status ?: "active") == "active") {
-                Text(
-                    text = stringResource(R.string.profile_active),
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Green,
+                Box(
                     modifier = Modifier
-                        .background(GreenTint, RoundedCornerShape(999.dp))
-                        .padding(horizontal = 13.dp, vertical = 5.dp)
+                        .size(66.dp)
+                        .background(Green, RoundedCornerShape(Dimens.RadiusPanel)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = worker.initials,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 22.sp,
+                        color = Color.White
+                    )
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = worker.displayName ?: worker.firstName,
+                        style = MaterialTheme.typography.headlineSmall,
+                        textAlign = TextAlign.Center
+                    )
+                    Text(
+                        text = worker.positionAndId,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextMuted,
+                        textAlign = TextAlign.Center
+                    )
+                }
+                if ((worker.status ?: "active") == "active") {
+                    StatusPill(
+                        text = stringResource(R.string.profile_active),
+                        foreground = Green,
+                        background = GreenTint,
+                        icon = Icons.Filled.Verified
+                    )
+                }
+            }
+        }
+
+        AppCard(padding = 0.dp) {
+            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                InfoRow(
+                    label = stringResource(R.string.label_email),
+                    value = worker.email ?: stringResource(R.string.value_none)
+                )
+                CardDivider()
+                InfoRow(
+                    label = stringResource(R.string.profile_worker_id),
+                    value = worker.workerIdLabel,
+                    mono = true
                 )
             }
         }
-        Box(Modifier.fillMaxWidth().height(1.dp).background(BorderDefault))
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Surface, RoundedCornerShape(Dimens.RadiusLarge))
-                    .border(1.dp, BorderDefault, RoundedCornerShape(Dimens.RadiusLarge))
-            ) {
-                InfoRow(stringResource(R.string.label_email), worker.email ?: "—")
-                Divider()
-                InfoRow(stringResource(R.string.profile_position), worker.position ?: "—")
-                Divider()
-                InfoRow(stringResource(R.string.profile_worker_id), worker.workerIdLabel, mono = true)
-            }
-
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             RowButton(
                 title = stringResource(R.string.profile_change_password),
-                subtitle = stringResource(R.string.profile_change_password_tl),
+                subtitle = stringResource(R.string.profile_change_password_sub),
                 icon = Icons.Filled.Key,
                 // Green, unlike the Terms row's grey: this is the only
                 // thing on the screen a worker can actually change.
@@ -203,9 +195,9 @@ internal fun ProfileContent(
                 onClick = { showPassword = true }
             )
 
-            // The Terms are readable after acceptance, on purpose: a worker
-            // who agreed to something should be able to go back and read it
-            // without asking anyone.
+            // The Terms are readable after acceptance, on purpose: a
+            // worker who agreed to something should be able to go back and
+            // read it without asking anyone.
             RowButton(
                 title = stringResource(R.string.terms_title),
                 subtitle = state.acceptedAt
@@ -219,35 +211,7 @@ internal fun ProfileContent(
                 onClick = { showTerms = true }
             )
 
-            Spacer(Modifier.weight(1f))
-
-            // Outlined, not a filled red slab. Logging out is not the
-            // primary action here and should not read as one -- it is the
-            // exit, sitting at the foot of the screen where the design
-            // puts it, in red so it is unmistakable when wanted.
-            OutlinedButton(
-                onClick = onSignOut,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .defaultMinSize(minHeight = 66.dp),
-                shape = RoundedCornerShape(14.dp),
-                border = BorderStroke(1.5.dp, DangerBorder),
-                colors = ButtonDefaults.outlinedButtonColors(containerColor = Surface)
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.Logout,
-                    contentDescription = null,
-                    tint = Danger,
-                    modifier = Modifier.size(21.dp)
-                )
-                Spacer(Modifier.width(10.dp))
-                Text(
-                    text = stringResource(R.string.action_log_out),
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Danger
-                )
-            }
+            LogOutRow(onSignOut)
         }
     }
 
@@ -268,11 +232,46 @@ internal fun ProfileContent(
 }
 
 /**
+ * The exit.
+ *
+ * Not a filled red slab. Logging out is not the primary action here and
+ * should not read as one -- it is the way out, sitting at the foot of the
+ * screen where the design puts it, in red so it is unmistakable when
+ * wanted and easy to skip past when not.
+ */
+@Composable
+private fun LogOutRow(onSignOut: () -> Unit) {
+    val shape = RoundedCornerShape(Dimens.RadiusRow)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Surface, shape)
+            .border(1.dp, DangerBorder, shape)
+            .clickable(onClick = onSignOut)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        horizontalArrangement = Arrangement.spacedBy(9.dp, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.Logout,
+            contentDescription = null,
+            tint = Danger,
+            modifier = Modifier.size(20.dp)
+        )
+        Text(
+            text = stringResource(R.string.action_log_out),
+            style = MaterialTheme.typography.labelMedium,
+            color = Danger
+        )
+    }
+}
+
+/**
  * Changing your own password, without calling the office.
  *
  * Both boxes are on one screen rather than a two-step wizard: a worker
- * who mistypes the second one has to see the first to fix it, and this
- * is a 6" screen in daylight.
+ * who mistypes the second one has to see the first to fix it, and this is
+ * a 6" screen in daylight.
  */
 @Composable
 private fun ChangePasswordDialog(
@@ -286,12 +285,12 @@ private fun ChangePasswordDialog(
 
     Dialog(onDismissRequest = onClose) {
         androidx.compose.material3.Surface(
-            shape = RoundedCornerShape(Dimens.RadiusLarge),
-            color = MaterialTheme.colorScheme.surface
+            shape = RoundedCornerShape(Dimens.RadiusPanel),
+            color = Surface
         ) {
             Column(
                 modifier = Modifier
-                    .padding(Dimens.GapMedium)
+                    .padding(Dimens.ScreenPadding)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(Dimens.GapMedium)
             ) {
@@ -310,8 +309,7 @@ private fun ChangePasswordDialog(
                         color = Green
                     )
                     PrimaryActionButton(
-                        english = stringResource(R.string.action_close),
-                        tagalog = stringResource(R.string.action_close_tl),
+                        label = stringResource(R.string.action_close).uppercase(Locale.ENGLISH),
                         onClick = onClose
                     )
                     return@Column
@@ -319,7 +317,6 @@ private fun ChangePasswordDialog(
 
                 LabeledField(
                     label = stringResource(R.string.label_new_password),
-                    tagalogHint = stringResource(R.string.label_new_password_tl),
                     value = password,
                     onValueChange = { password = it },
                     keyboardType = KeyboardType.Password,
@@ -334,7 +331,6 @@ private fun ChangePasswordDialog(
 
                 LabeledField(
                     label = stringResource(R.string.label_confirm_password),
-                    tagalogHint = stringResource(R.string.label_confirm_password_tl),
                     value = confirmation,
                     onValueChange = { confirmation = it },
                     keyboardType = KeyboardType.Password,
@@ -354,16 +350,15 @@ private fun ChangePasswordDialog(
                 state.passwordFailure?.let { PasswordFailureNotice(it) }
 
                 PrimaryActionButton(
-                    english = stringResource(R.string.action_save_password),
-                    tagalog = stringResource(R.string.action_save_password_tl),
+                    label = stringResource(R.string.action_save_password),
                     onClick = { onSubmit(password, confirmation) },
                     loading = state.changingPassword
                 )
                 TextButton(onClick = onClose, modifier = Modifier.fillMaxWidth()) {
                     Text(
                         text = stringResource(R.string.action_close),
-                        color = TextSecondary,
-                        fontWeight = FontWeight.Bold
+                        style = MaterialTheme.typography.labelMedium,
+                        color = TextSecondary
                     )
                 }
             }
@@ -397,41 +392,40 @@ private fun PasswordFailureNotice(failure: PasswordChangeFailure) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(DangerTint, RoundedCornerShape(Dimens.RadiusMedium))
-            .border(1.dp, DangerBorder, RoundedCornerShape(Dimens.RadiusMedium))
+            .background(DangerTint, RoundedCornerShape(Dimens.RadiusField))
+            .border(1.dp, DangerBorder, RoundedCornerShape(Dimens.RadiusField))
             .padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp)
+        verticalArrangement = Arrangement.spacedBy(3.dp)
     ) {
         Text(
             text = stringResource(english),
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.labelMedium,
             color = Danger
         )
         Text(
             text = stringResource(tagalog),
             style = MaterialTheme.typography.bodySmall,
-            color = TextSecondary
+            color = Danger
         )
     }
 }
 
 /** "3 Aug 2026", in Manila -- the zone every date in this app is in. */
-private val AcceptedDateFormat = DateTimeFormatter.ofPattern("d MMM yyyy")
+private val AcceptedDateFormat = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH)
 
 private fun acceptedDate(at: Instant): String =
     at.atZone(AttendanceZone).format(AcceptedDateFormat)
 
 @Composable
 private fun TermsReader(onClose: () -> Unit) {
-    androidx.compose.ui.window.Dialog(onDismissRequest = onClose) {
+    Dialog(onDismissRequest = onClose) {
         androidx.compose.material3.Surface(
-            shape = RoundedCornerShape(Dimens.RadiusLarge),
-            color = MaterialTheme.colorScheme.surface
+            shape = RoundedCornerShape(Dimens.RadiusPanel),
+            color = Surface
         ) {
             Column(
                 modifier = Modifier
-                    .padding(Dimens.GapMedium)
+                    .padding(Dimens.ScreenPadding)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(Dimens.GapSmall)
             ) {
@@ -454,15 +448,10 @@ private fun TermsReader(onClose: () -> Unit) {
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextSecondary
                     )
-                    Text(
-                        text = clause.tagalog,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextMuted
-                    )
                 }
+                Spacer(Modifier.size(Dimens.GapSmall))
                 PrimaryActionButton(
-                    english = stringResource(R.string.action_close),
-                    tagalog = stringResource(R.string.action_close_tl),
+                    label = stringResource(R.string.action_close).uppercase(Locale.ENGLISH),
                     onClick = onClose
                 )
             }
@@ -475,25 +464,24 @@ private fun InfoRow(label: String, value: String, mono: Boolean = false) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 18.dp, vertical = 13.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
+            .padding(vertical = 13.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text = label, fontSize = 15.sp, color = TextMuted)
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = TextMuted
+        )
         Text(
             text = value,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.SemiBold,
-            fontFamily = if (mono) MonoFamily else null
+            modifier = Modifier.weight(1f),
+            fontWeight = FontWeight.Bold,
+            fontSize = 14.sp,
+            fontFamily = if (mono) MonoFamily else null,
+            textAlign = TextAlign.End
         )
     }
-}
-
-@Composable
-private fun Divider() {
-    // height(), not size(): size() constrains the WIDTH to 1dp as well,
-    // which draws a one-pixel dot instead of a rule.
-    Box(Modifier.fillMaxWidth().height(1.dp).background(Hairline))
 }
 
 @Composable
@@ -504,15 +492,15 @@ private fun RowButton(
     iconTint: Color,
     onClick: () -> Unit
 ) {
+    val shape = RoundedCornerShape(Dimens.RadiusRow)
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Surface, RoundedCornerShape(14.dp))
-            .border(1.5.dp, BorderDefault, RoundedCornerShape(14.dp))
+            .background(Surface, shape)
+            .border(1.dp, BorderDefault, shape)
             .clickable(onClick = onClick)
-            .defaultMinSize(minHeight = 66.dp)
-            .padding(horizontal = 18.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(Dimens.GapMedium),
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        horizontalArrangement = Arrangement.spacedBy(13.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
@@ -521,21 +509,21 @@ private fun RowButton(
             // reader repeating it would only slow the row down.
             contentDescription = null,
             tint = iconTint,
-            modifier = Modifier.size(22.dp)
+            modifier = Modifier.size(21.dp)
         )
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
-        ) {
-            Text(text = title, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-            Text(text = subtitle, fontSize = 13.5.sp, color = TextMuted)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = title, style = MaterialTheme.typography.labelMedium)
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = TextMuted
+            )
         }
         Icon(
             imageVector = Icons.Filled.ChevronRight,
             contentDescription = null,
-            tint = TextDisabled,
+            tint = TextFaint,
             modifier = Modifier.size(20.dp)
         )
     }
 }
-

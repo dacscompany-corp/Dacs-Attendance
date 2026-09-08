@@ -40,8 +40,8 @@ fun AttendanceFailureNotice(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(DangerTint, RoundedCornerShape(Dimens.RadiusMedium))
-            .border(1.dp, DangerBorder, RoundedCornerShape(Dimens.RadiusMedium))
+            .background(DangerTint, RoundedCornerShape(Dimens.RadiusField))
+            .border(1.dp, DangerBorder, RoundedCornerShape(Dimens.RadiusField))
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(3.dp)
     ) {
@@ -76,7 +76,15 @@ private val AttendanceFailure.worthRetrying: Boolean
     get() = when (this) {
         AttendanceFailure.NoConnection,
         AttendanceFailure.Unexpected,
-        AttendanceFailure.DeviceClockWrong -> true
+        AttendanceFailure.DeviceClockWrong,
+        // A fix can improve where a worker stands still: walking a few
+        // metres into the open is exactly the fix for both of these.
+        AttendanceFailure.OutsideRadius,
+        AttendanceFailure.ProjectGeofenceUnavailable -> true
+        // Deliberately NOT LocationPermissionDenied: retrying without
+        // changing the setting fails identically, and offering the button
+        // teaches the worker the app is broken rather than that the
+        // permission is off.
         else -> false
     }
 
@@ -112,6 +120,18 @@ private fun AttendanceFailure.copy(): Pair<String, String> = when (this) {
     AttendanceFailure.NotAWorker ->
         stringResource(R.string.error_not_a_worker) to
             stringResource(R.string.error_not_a_worker_tl)
+    AttendanceFailure.OutsideRadius ->
+        stringResource(R.string.att_outside_radius) to
+            stringResource(R.string.att_outside_radius_tl)
+    AttendanceFailure.MockLocation ->
+        stringResource(R.string.att_mock_location) to
+            stringResource(R.string.att_mock_location_tl)
+    AttendanceFailure.LocationPermissionDenied ->
+        stringResource(R.string.att_location_denied) to
+            stringResource(R.string.att_location_denied_tl)
+    AttendanceFailure.ProjectGeofenceUnavailable ->
+        stringResource(R.string.att_geofence_missing) to
+            stringResource(R.string.att_geofence_missing_tl)
     AttendanceFailure.SessionExpired ->
         stringResource(R.string.att_session_expired) to
             stringResource(R.string.att_session_expired_tl)

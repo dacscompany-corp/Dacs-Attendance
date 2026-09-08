@@ -4,6 +4,7 @@ import com.dacs.attendance.data.remote.AttendanceRecordRow
 import com.dacs.attendance.data.remote.ProjectRow
 import com.dacs.attendance.domain.AttendanceProject
 import com.dacs.attendance.domain.AttendanceRecord
+import com.dacs.attendance.domain.ProjectSystem
 import com.dacs.attendance.domain.TimeDirection
 import com.dacs.attendance.domain.WorkDate
 import com.dacs.attendance.domain.photoPath
@@ -22,27 +23,35 @@ import kotlinx.serialization.json.put
 /** The private bucket every attendance photo lives in (migration 0050). */
 internal const val PHOTO_BUCKET = "attendance"
 
+/** The picker's source since 0059. See [SupabaseProjectRepository]. */
+private const val PROJECTS_FOR_WORKER = "attendance_projects_for_worker"
+
 @Singleton
 class SupabaseProjectRepository @Inject constructor(
     private val client: SupabaseClient
 ) : ProjectRepository {
 
     /**
-     * RLS does the tenant scoping (0051: `owner_id = attendance_data_owner()`
-     * and `is_active`), so this deliberately does not filter by owner --
-     * a client-side owner filter would be a second, drifting copy of a
-     * rule the database already enforces.
+     * An RPC, NOT a table read.
+     *
+     * Migration 0059 retired `attendance_projects` and pointed the picker
+     * at the two real project systems. Workers deliberately have no
+     * select on `folders` -- the budgets and contract values hanging off
+     * it are owner-confidential -- so the server exposes exactly three
+     * columns through a security-definer function instead. Reading the
+     * underlying tables from here would need a policy that hands every
+     * mason the contract amounts.
+     *
+     * Scoping, ordering and the Additional Works exclusion all live in
+     * that function. Re-applying any of it here would be a second,
+     * drifting copy of a rule the database already enforces.
      */
     override suspend fun activeProjects(): Result<List<AttendanceProject>> =
         runCatchingExceptCancellation {
             client.postgrest
-                .from("attendance_projects")
-                .select(Columns.raw(ProjectRow.COLUMNS)) {
-                    filter { eq("is_active", true) }
-                    order("name", Order.ASCENDING)
-                }
+                .rpc(PROJECTS_FOR_WORKER)
                 .decodeList<ProjectRow>()
-                .map { it.toDomain() }
+                .mapNotNull { it.toDomain() }
         }
 }
 
@@ -88,6 +97,10 @@ class SupabaseAttendanceRepository @Inject constructor(
             client.postgrest.rpc(
                 function,
                 buildJsonObject {
+                    // The PAIR, never the id alone: 'pc' ids come from
+                    // folders and 'pm' ids from construction_projects, and
+                    // the server resolves the name from both together.
+                    put("p_project_system", request.projectSystem.wire)
                     put("p_project_id", request.projectId)
                     put("p_captured_at", request.capturedAt.toString())
                     put("p_photo_path", path)

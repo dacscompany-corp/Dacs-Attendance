@@ -2,6 +2,7 @@ package com.dacs.attendance.data.repo
 
 import com.dacs.attendance.domain.AttendanceProject
 import com.dacs.attendance.domain.AttendanceRecord
+import com.dacs.attendance.domain.ProjectSystem
 import com.dacs.attendance.domain.TimeDirection
 import java.io.File
 import java.time.Instant
@@ -21,7 +22,13 @@ import java.time.Instant
  */
 data class SubmissionRequest(
     val direction: TimeDirection,
-    val projectId: Long,
+    /**
+     * WHICH list [projectId] belongs to. Since 0059 the id alone does not
+     * identify a project -- 'pc' ids live in folders and 'pm' ids in
+     * construction_projects -- so both RPCs take the pair.
+     */
+    val projectSystem: ProjectSystem,
+    val projectId: String,
     val capturedAt: Instant,
     val photo: File,
     val description: String?,

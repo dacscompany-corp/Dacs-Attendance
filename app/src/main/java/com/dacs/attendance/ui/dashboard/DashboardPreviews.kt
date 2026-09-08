@@ -6,6 +6,7 @@ import com.dacs.attendance.domain.AttendanceFailure
 import com.dacs.attendance.domain.AttendanceRecord
 import com.dacs.attendance.domain.AttendanceStatus
 import com.dacs.attendance.domain.WorkerProfile
+import com.dacs.attendance.domain.weekStrip
 import com.dacs.attendance.ui.theme.AttendanceTheme
 import java.time.Instant
 
@@ -13,8 +14,8 @@ import java.time.Instant
  * Every dashboard state, side by side, with no device and no network.
  *
  * Open this file in Android Studio and use the Split or Design pane.
- * These four are the whole state space of screens 03 and 09 -- if the
- * stepper or the hero button is wrong anywhere, it is wrong here first.
+ * These four are the whole state space of Home -- if the status card or
+ * the hero is wrong anywhere, it is wrong here first.
  */
 private val previewWorker = WorkerProfile(
     id = "preview",
@@ -41,14 +42,24 @@ private fun previewRecord(
     totalMinutes = totalMinutes
 )
 
+/** Mon and Tue worked, today is Wednesday. */
+private val previewWeek = weekStrip(
+    records = listOf(
+        previewRecord(AttendanceStatus.COMPLETE).copy(workDate = "2026-08-17"),
+        previewRecord(AttendanceStatus.COMPLETE).copy(workDate = "2026-08-18")
+    ),
+    today = java.time.LocalDate.parse("2026-08-19")
+)
+
 @Preview(name = "01 · Nothing recorded yet", showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
 private fun DashboardIdlePreview() {
     AttendanceTheme {
         DashboardContent(
             worker = previewWorker,
-            state = DashboardUiState(loading = false, record = null),
+            state = DashboardUiState(loading = false, record = null, week = previewWeek),
             onStartFlow = {},
+            onSeeHistory = {},
             onRetry = {}
         )
     }
@@ -63,9 +74,12 @@ private fun DashboardWorkingPreview() {
             state = DashboardUiState(
                 loading = false,
                 record = previewRecord(AttendanceStatus.WORKING),
-                totalHoursLabel = "3h 47m"
+                totalHoursLabel = "3h 47m",
+                totalMinutes = 227,
+                week = previewWeek
             ),
             onStartFlow = {},
+            onSeeHistory = {},
             onRetry = {}
         )
     }
@@ -84,9 +98,12 @@ private fun DashboardCompletePreview() {
                     timeOut = Instant.parse("2026-08-19T09:30:00Z"),
                     totalMinutes = 585
                 ),
-                totalHoursLabel = "9h 45m"
+                totalHoursLabel = "9h 45m",
+                totalMinutes = 585,
+                week = previewWeek
             ),
             onStartFlow = {},
+            onSeeHistory = {},
             onRetry = {}
         )
     }
@@ -101,9 +118,11 @@ private fun DashboardOfflinePreview() {
             state = DashboardUiState(
                 loading = false,
                 record = null,
-                failure = AttendanceFailure.NoConnection
+                failure = AttendanceFailure.NoConnection,
+                week = previewWeek
             ),
             onStartFlow = {},
+            onSeeHistory = {},
             onRetry = {}
         )
     }

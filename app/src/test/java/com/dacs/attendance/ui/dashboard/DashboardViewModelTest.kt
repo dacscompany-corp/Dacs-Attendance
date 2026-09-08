@@ -1,15 +1,20 @@
 package com.dacs.attendance.ui.dashboard
 
 import com.dacs.attendance.data.repo.AttendanceRepository
+import com.dacs.attendance.data.repo.RewardRepository
 import com.dacs.attendance.data.repo.SubmissionRequest
 import com.dacs.attendance.domain.AttendanceFailure
 import com.dacs.attendance.domain.AttendanceRecord
 import com.dacs.attendance.domain.AttendanceStatus
+import com.dacs.attendance.domain.RewardDay
+import com.dacs.attendance.domain.RewardDayStatus
+import com.dacs.attendance.domain.RewardStatus
+import com.dacs.attendance.domain.rewardWeekStart
 import com.dacs.attendance.domain.TimeDirection
 import com.dacs.attendance.support.MainDispatcherRule
-import com.dacs.attendance.ui.components.StepState
 import java.io.IOException
 import java.time.Instant
+import java.time.LocalDate
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -48,6 +53,13 @@ class DashboardViewModelTest {
         }
     }
 
+    private class FakeRewards(
+        private val result: Result<List<RewardDay>> = Result.success(emptyList())
+    ) : RewardRepository {
+        override suspend fun weekProgress(weekStart: LocalDate) = result
+        override suspend fun rewardAmount(): Result<Double?> = Result.success(500.0)
+    }
+
     private fun record(
         status: AttendanceStatus,
         timeIn: Instant? = Instant.parse("2026-08-18T23:45:00Z"),
@@ -65,7 +77,7 @@ class DashboardViewModelTest {
     )
 
     private fun viewModel(result: Result<AttendanceRecord?>) =
-        DashboardViewModel(FakeAttendance(result), RecordingProjects())
+        DashboardViewModel(FakeAttendance(result), RecordingProjects(), FakeRewards())
 
     @Test
     fun `no record yet means the worker may time in`() = runTest {
@@ -195,7 +207,7 @@ class DashboardViewModelTest {
         // prevent. The dashboard is the one screen every worker sees, so
         // it is where the cache gets warmed.
         val projects = RecordingProjects()
-        val vm = DashboardViewModel(FakeAttendance(Result.success(null)), projects)
+        val vm = DashboardViewModel(FakeAttendance(Result.success(null)), projects, FakeRewards())
         advanceUntilIdle()
 
         assertEquals(1, projects.calls)
@@ -212,12 +224,54 @@ class DashboardViewModelTest {
     @Test
     fun `refresh re-reads the record after a submission`() = runTest {
         val auth = FakeAttendance(Result.success(null))
-        val vm = DashboardViewModel(auth, RecordingProjects())
+        val vm = DashboardViewModel(auth, RecordingProjects(), FakeRewards())
         advanceUntilIdle()
 
         vm.refresh()
         advanceUntilIdle()
 
         assertEquals(2, auth.loads)
+    }
+
+    @Test
+    fun `a reward strip that cannot be read does not take the screen down with it`() = runTest {
+        // The reward is the ONLY read on this screen with no offline
+        // fallback, so on a site with no signal it is the one that
+        // fails. The TIME IN button is the screen's whole job and has to
+        // survive it.
+        val vm = DashboardViewModel(
+            FakeAttendance(Result.success(null)),
+            RecordingProjects(),
+            FakeRewards(Result.failure(IOException("no signal")))
+        )
+        advanceUntilIdle()
+
+        assertTrue(vm.uiState.value.rewardUnavailable)
+        assertTrue(vm.uiState.value.rewardWeek.isEmpty())
+
+        assertEquals(TimeDirection.IN, vm.uiState.value.nextAction)
+        assertFalse(vm.uiState.value.loading)
+    }
+
+    @Test
+    fun `the reward strip is five cells, where the attendance strip is six`() = runTest {
+        // Both are true at once: DACs works Saturdays, and the reward
+        // only ever asks about Monday to Friday. Drawing one from the
+        // other would tell a worker a missed Saturday cost them ₱500.
+        val monday = rewardWeekStart(LocalDate.now(com.dacs.attendance.domain.AttendanceZone))
+        val days = (0L until 5L).map {
+            RewardDay(monday.plusDays(it), required = true, status = RewardDayStatus.OnTime)
+        }
+
+        val vm = DashboardViewModel(
+            FakeAttendance(Result.success(null)),
+            RecordingProjects(),
+            FakeRewards(Result.success(days))
+        )
+        advanceUntilIdle()
+
+        assertEquals(5, vm.uiState.value.rewardWeek.size)
+        assertFalse(vm.uiState.value.rewardUnavailable)
+        assertEquals(RewardStatus.Qualified, vm.uiState.value.reward?.status)
     }
 }

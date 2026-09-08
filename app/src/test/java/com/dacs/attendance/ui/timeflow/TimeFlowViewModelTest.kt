@@ -7,6 +7,7 @@ import com.dacs.attendance.domain.AttendanceFailure
 import com.dacs.attendance.domain.AttendanceProject
 import com.dacs.attendance.domain.AttendanceRecord
 import com.dacs.attendance.domain.AttendanceStatus
+import com.dacs.attendance.domain.ProjectSystem
 import com.dacs.attendance.domain.TimeDirection
 import com.dacs.attendance.support.MainDispatcherRule
 import java.io.File
@@ -34,10 +35,14 @@ class TimeFlowViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
+    // One from each project system: since 0059 the picker merges folders
+    // ('pc') and construction_projects ('pm'), and a project is the PAIR.
     private val projects = listOf(
-        AttendanceProject(id = 1, name = "ABC Building Project"),
-        AttendanceProject(id = 2, name = "Residential Project")
+        AttendanceProject(ProjectSystem.PC, "11111111-1111-4111-8111-111111111111", "ABC Building Project"),
+        AttendanceProject(ProjectSystem.PM, "22222222-2222-4222-8222-222222222222", "Residential Project")
     )
+    private val first = projects[0]
+    private val second = projects[1]
 
     private val savedRecord = AttendanceRecord(
         id = "rec-1",
@@ -106,7 +111,7 @@ class TimeFlowViewModelTest {
         val vm = viewModel(FakeAttendance(mutableListOf(Result.success(savedRecord))))
         advanceUntilIdle()
 
-        vm.onProjectSelected(2)
+        vm.onProjectSelected(second.key)
         vm.onProjectConfirmed()
 
         assertEquals(FlowStep.TakePhoto, vm.uiState.value.step)
@@ -116,7 +121,7 @@ class TimeFlowViewModelTest {
     fun `a taken photo goes to the check screen, and retake goes back`() = runTest {
         val vm = viewModel(FakeAttendance(mutableListOf(Result.success(savedRecord))))
         advanceUntilIdle()
-        vm.onProjectSelected(1)
+        vm.onProjectSelected(first.key)
         vm.onProjectConfirmed()
 
         vm.onPhotoTaken(photoFile(), Instant.parse("2026-08-18T23:45:00Z"))
@@ -139,7 +144,7 @@ class TimeFlowViewModelTest {
         advanceUntilIdle()
 
         val shutter = Instant.parse("2026-08-18T23:45:00Z")
-        vm.onProjectSelected(1)
+        vm.onProjectSelected(first.key)
         vm.onProjectConfirmed()
         vm.onPhotoTaken(photoFile(), shutter)
         vm.onPhotoAccepted()
@@ -154,7 +159,7 @@ class TimeFlowViewModelTest {
         val attendance = FakeAttendance(mutableListOf(Result.success(savedRecord)))
         val vm = viewModel(attendance)
         advanceUntilIdle()
-        vm.onProjectSelected(1)
+        vm.onProjectSelected(first.key)
         vm.onProjectConfirmed()
         vm.onPhotoTaken(photoFile(), Instant.parse("2026-08-18T23:45:00Z"))
         vm.onPhotoAccepted()
@@ -171,7 +176,7 @@ class TimeFlowViewModelTest {
         val attendance = FakeAttendance(mutableListOf(Result.success(savedRecord)))
         val vm = viewModel(attendance, direction = TimeDirection.OUT)
         advanceUntilIdle()
-        vm.onProjectSelected(2)
+        vm.onProjectSelected(second.key)
         vm.onProjectConfirmed()
         vm.onPhotoTaken(photoFile(), Instant.parse("2026-08-19T09:30:00Z"))
         vm.onPhotoAccepted()
@@ -179,7 +184,8 @@ class TimeFlowViewModelTest {
         advanceUntilIdle()
 
         val request = attendance.requests.single()
-        assertEquals(2L, request.projectId)
+        assertEquals(second.id, request.projectId)
+        assertEquals(ProjectSystem.PM, request.projectSystem)
         assertEquals(TimeDirection.OUT, request.direction)
     }
 
@@ -199,7 +205,7 @@ class TimeFlowViewModelTest {
         )
         val vm = viewModel(attendance)
         advanceUntilIdle()
-        vm.onProjectSelected(1)
+        vm.onProjectSelected(first.key)
         vm.onProjectConfirmed()
         vm.onPhotoTaken(photoFile(), Instant.parse("2026-08-18T23:45:00Z"))
         vm.onPhotoAccepted()
@@ -220,7 +226,7 @@ class TimeFlowViewModelTest {
         val attendance = FakeAttendance(mutableListOf(Result.success(savedRecord)))
         val first = viewModel(attendance)
         advanceUntilIdle()
-        first.onProjectSelected(1)
+        first.onProjectSelected(this@TimeFlowViewModelTest.first.key)
         first.onProjectConfirmed()
         first.onPhotoTaken(photoFile(), Instant.parse("2026-08-18T23:45:00Z"))
         first.onPhotoAccepted()
@@ -229,7 +235,7 @@ class TimeFlowViewModelTest {
 
         val second = viewModel(attendance, direction = TimeDirection.OUT)
         advanceUntilIdle()
-        second.onProjectSelected(1)
+        second.onProjectSelected(this@TimeFlowViewModelTest.first.key)
         second.onProjectConfirmed()
         second.onPhotoTaken(photoFile(), Instant.parse("2026-08-19T09:30:00Z"))
         second.onPhotoAccepted()
@@ -246,7 +252,7 @@ class TimeFlowViewModelTest {
     fun `a successful submit lands on the confirmation with the saved record`() = runTest {
         val vm = viewModel(FakeAttendance(mutableListOf(Result.success(savedRecord))))
         advanceUntilIdle()
-        vm.onProjectSelected(1)
+        vm.onProjectSelected(first.key)
         vm.onProjectConfirmed()
         vm.onPhotoTaken(photoFile(), Instant.parse("2026-08-18T23:45:00Z"))
         vm.onPhotoAccepted()
@@ -265,7 +271,7 @@ class TimeFlowViewModelTest {
         val refusal = RuntimeException("""{"code":"P0001","message":"ALREADY_TIMED_IN"}""")
         val vm = viewModel(FakeAttendance(mutableListOf(Result.failure(refusal))))
         advanceUntilIdle()
-        vm.onProjectSelected(1)
+        vm.onProjectSelected(first.key)
         vm.onProjectConfirmed()
         vm.onPhotoTaken(photoFile(), Instant.parse("2026-08-18T23:45:00Z"))
         vm.onPhotoAccepted()
@@ -284,7 +290,7 @@ class TimeFlowViewModelTest {
         val attendance = FakeAttendance(mutableListOf(Result.success(savedRecord)))
         val vm = viewModel(attendance)
         advanceUntilIdle()
-        vm.onProjectSelected(1)
+        vm.onProjectSelected(first.key)
         vm.onProjectConfirmed()
         vm.onPhotoTaken(photoFile(), Instant.parse("2026-08-18T23:45:00Z"))
         vm.onPhotoAccepted()

@@ -63,13 +63,39 @@ fun outcomeFor(failure: AttendanceFailure): QueueOutcome = when (failure) {
 
     // NotTimedIn is retryable on purpose: the matching Time In may still
     // be sitting in this very queue, one row ahead.
+    //
+    // ProjectGeofenceUnavailable is retryable for the same shape of
+    // reason -- the refusal is about the SERVER's configuration, not the
+    // worker's row, and an admin setting the site's coordinates makes an
+    // unchanged retry succeed. Failing it permanently would throw away a
+    // recoverable day over an omission the worker had no part in, and the
+    // day cannot be re-recorded afterwards: the photo and the moment are
+    // gone.
+    //
+    // The cost, stated plainly: there is no attempt cap here, so a row
+    // refused this way stays pending until somebody configures the
+    // project. It is visible to the worker as pending rather than lost,
+    // which is the right side to err on, but it is not self-healing.
     AttendanceFailure.NoConnection,
     AttendanceFailure.NotTimedIn,
+    AttendanceFailure.ProjectGeofenceUnavailable,
     AttendanceFailure.SessionExpired,
     AttendanceFailure.Unexpected -> QueueOutcome.Retry
 
-    // captured_at was frozen at the shutter, so a later retry sends the
-    // identical value and earns the identical refusal.
+    // The COORDINATES were frozen at the shutter for exactly the same
+    // reason captured_at was, so a retry sends identical values and earns
+    // an identical refusal. Nothing the worker or the office can do makes
+    // these three succeed.
+    //
+    // OutsideRadius reaching the queue at all is unusual: 0069 softens it
+    // for a row the device already accepted, recording and flagging
+    // instead of refusing. It gets here only when the submission was
+    // captured with a connection and failed to upload afterwards -- and
+    // then the refusal is correct and permanent.
+    AttendanceFailure.OutsideRadius,
+    AttendanceFailure.MockLocation,
+    AttendanceFailure.LocationPermissionDenied,
+
     AttendanceFailure.DeviceClockWrong,
     AttendanceFailure.TimeOutBeforeTimeIn,
     AttendanceFailure.ShiftTooLong,

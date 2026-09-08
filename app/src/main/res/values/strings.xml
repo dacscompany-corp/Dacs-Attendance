@@ -1,60 +1,197 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  BILINGUAL, NOT LOCALIZED.
+  SCREEN COPY IS ENGLISH. FAILURE COPY IS BILINGUAL.
 
-  Every label shows English and Tagalog TOGETHER, always, on the same
-  screen. This is a deliberate design decision from the Claude Design
-  source: the workforce reads both, and a language toggle would mean a
-  worker can end up on a screen they cannot read.
+  v1 showed English and Tagalog together on every label. The v2 design
+  (Attendance App - Redesign v2.dc.html) is English throughout, with
+  shorter, plainer sentences doing the work the second line used to do
+  ("Tap to start your day", "Pick the site you are working on").
 
-  So: do NOT move the _tl strings into values-fil/. They are not a
-  translation, they are part of the label. See BilingualText().
+  The _tl strings that remain are deliberate and are NOT leftovers. They
+  all belong to refusals and errors — the messages where being misread
+  costs the most, and the only ones the design never draws. See
+  FailureNotice and AttendanceFailureNotice.
+
+  Do NOT move the _tl strings into values-fil/. They are part of the
+  message, shown alongside the English, not a translation of it.
 -->
 <resources>
     <string name="app_name">DACs Attendance</string>
 
     <!-- Login -->
-    <string name="login_title">Attendance</string>
-    <string name="login_subtitle">DAC\'s Building Design Services</string>
+    <string name="login_brand">Attendance</string>
+    <string name="login_brand_sub">DAC\'s Building Design Services</string>
+    <string name="login_title">Welcome back</string>
+    <string name="login_subtitle">Use the email your admin gave you.</string>
     <string name="label_email">Email</string>
-    <string name="label_email_tl">Ang email na binigay ng admin</string>
     <string name="label_password">Password</string>
-    <string name="label_password_tl">Ang password mo</string>
+    <string name="action_show_password">Show</string>
+    <string name="action_hide_password">Hide</string>
     <string name="action_sign_in">SIGN IN</string>
-    <string name="action_sign_in_tl">Mag-log in</string>
-    <string name="login_no_account">Walang account? Ang admin lang ang makakagawa nito. Tawagan ang opisina.</string>
+    <string name="login_no_account">No account? Call the office.</string>
 
     <!-- Terms -->
     <string name="terms_title">Terms &amp; Conditions</string>
-    <string name="terms_title_tl">Basahin bago magpatuloy</string>
     <string name="terms_once">You only need to do this once, on your first log in.</string>
     <string name="terms_agree">I have read and I agree.</string>
-    <string name="terms_agree_tl">Nabasa at sumasang-ayon ako.</string>
+    <string name="terms_agree_sub">Required before you continue.</string>
     <string name="action_accept">ACCEPT &amp; CONTINUE</string>
-    <string name="action_accept_tl">Tanggapin at magpatuloy</string>
 
-    <!-- Dashboard -->
-    <string name="greeting_morning">Magandang umaga,</string>
-    <string name="action_time_in">TIME IN</string>
-    <string name="action_time_in_hint">Pipili ka muna ng project</string>
-    <string name="action_time_out">TIME OUT</string>
-    <string name="action_time_out_hint">Pipili ulit ng project</string>
-    <string name="step_time_in">Time In</string>
-    <string name="step_time_in_tl">Gawin ngayon</string>
-    <string name="step_working">Working</string>
-    <string name="step_working_tl">Hindi pa</string>
-    <string name="step_time_out">Time Out</string>
-    <string name="step_time_out_tl">Naka-lock</string>
-    <string name="no_time_yet">Wala pang naitalang oras ngayon</string>
-    <string name="hours_so_far">HOURS SO FAR</string>
-    <string name="hours_so_far_tl">Kabuuang oras hanggang ngayon</string>
+    <!-- Home -->
+    <string name="home_notifications">Notifications</string>
+    <string name="home_step_badge">STEP 1 OF 4</string>
+    <string name="action_time_in">Time In</string>
+    <string name="action_time_in_hint">Tap to start your day</string>
+    <string name="action_time_out">Time Out</string>
+    <string name="action_time_out_hint">Tap when you are heading home</string>
+    <string name="home_flow_summary">project · photo · check · submit</string>
+    <string name="home_not_timed_in">You have not timed in yet</string>
+    <string name="home_not_timed_in_sub">Tap Time In when you arrive</string>
+    <string name="timed_in_at">Timed in at %1$s</string>
+    <string name="home_saved">Saved</string>
+    <string name="home_pending">Not sent yet</string>
+    <!-- Reassurance, not a warning. The record is safe on the phone and
+         there is nothing for the worker to fix. -->
+    <string name="will_sync">Saved on this phone. It will send when there is signal.</string>
+    <string name="hours_so_far">Hours so far</string>
+    <string name="hours_total">Total hours</string>
+    <string name="hours_since">Since %1$s</string>
+    <string name="home_day_complete">Day complete</string>
+    <string name="home_day_complete_sub">Thank you. See you tomorrow.</string>
+    <string name="home_this_week">THIS WEEK</string>
+    <string name="home_see_all">See all</string>
+
+    <!-- Weekly reward (§37). English only, like every other screen label;
+         the bilingual rule applies to failure notices, not to these. -->
+    <string name="home_reward_title">WEEKLY REWARD</string>
+    <string name="home_reward_qualified">Qualified</string>
+    <string name="home_reward_disqualified">Disqualified</string>
+    <string name="home_reward_in_progress">In progress</string>
+    <string name="home_reward_unavailable">Needs signal to check</string>
+    <string name="home_reward_of">%1$d of %2$d on time</string>
 
     <!-- Nav -->
     <string name="nav_home">Home</string>
     <string name="nav_history">History</string>
     <string name="nav_profile">Profile</string>
-    <!-- Failures. Each one tells the worker what to DO: try again, or
-         call the office. A raw server string never reaches the screen. -->
+
+    <!-- The four-step flow. The headings are QUESTIONS, as the design
+         writes them: "Which project today?" tells a worker what to do
+         with the screen; "Select project" only names it. -->
+    <string name="mode_time_in">TIME IN</string>
+    <string name="mode_time_out">TIME OUT</string>
+    <string name="flow_pick_project">Which project today?</string>
+    <string name="flow_pick_project_sub">Pick the site you are working on.</string>
+    <string name="flow_project_active">Active</string>
+    <string name="flow_missing_project">If your project is missing, tell the admin.</string>
+    <string name="flow_no_projects">No projects are listed. Call the office.</string>
+    <string name="action_continue">NEXT · TAKE PHOTO</string>
+    <string name="flow_take_photo">Take your photo</string>
+    <string name="flow_take_photo_sub">Face the camera</string>
+    <string name="flow_camera_hint">Put your face inside the circle</string>
+    <string name="action_take_photo">Take photo</string>
+    <string name="action_flash">Flash</string>
+    <string name="action_switch_camera">Switch camera</string>
+    <string name="camera_permission_needed">The camera is needed for the photo. Allow it in Settings.</string>
+    <string name="flow_check_photo">Is this photo clear?</string>
+    <string name="flow_check_photo_sub">Check it before you submit</string>
+    <string name="action_use_photo">YES, USE THIS PHOTO</string>
+    <string name="action_retake">Retake photo</string>
+    <string name="flow_describe">What are you working on?</string>
+    <string name="flow_describe_sub">Optional — you can skip this</string>
+    <string name="flow_photo_taken">Photo taken</string>
+    <string name="flow_chips_label">TAP ONE</string>
+    <string name="flow_describe_own">Or type your own</string>
+    <string name="flow_describe_hint">e.g. Gate 2, delivery came</string>
+    <!-- The design\'s four. Tapping one is the whole point: this screen is
+         used one-handed, outdoors, often with gloves on. -->
+    <string-array name="flow_description_chips">
+        <item>Block A</item>
+        <item>Masonry</item>
+        <item>Concrete pouring</item>
+        <item>Site clearing</item>
+    </string-array>
+    <string name="action_submit_in">SUBMIT TIME IN</string>
+    <string name="action_submit_out">SUBMIT TIME OUT</string>
+
+    <!-- The confirmation. A worker walks away from this screen and cannot
+         check it again until the record reaches the server, so it repeats
+         every fact that was just filed under their name. -->
+    <string name="done_title_in">All done!</string>
+    <string name="done_title_out">Day complete!</string>
+    <string name="done_sub_in">Your Time In has been recorded</string>
+    <string name="done_sub_out">Your Time Out has been recorded</string>
+    <string name="done_saved">Saved on your phone</string>
+    <string name="confirm_time_in">Time in</string>
+    <string name="confirm_time_out">Time out</string>
+    <string name="confirm_date">Date</string>
+    <string name="confirm_project">Project</string>
+    <string name="confirm_note">Note</string>
+    <string name="confirm_total">Total hours</string>
+    <string name="confirm_next_in">When you head home, time out and pick your project again.</string>
+    <string name="confirm_next_out">Thank you. See you tomorrow.</string>
+    <string name="action_back_home">BACK TO HOME</string>
+    <string name="action_back">Back</string>
+    <string name="value_none">—</string>
+
+    <!-- History -->
+    <string name="history_title">My attendance</string>
+    <string name="history_subtitle">Your recorded days</string>
+    <string name="history_this_week">Week</string>
+    <string name="history_this_month">Month</string>
+    <!-- "1 days worked" reads as broken English to anyone, in any
+         language. Plurals, not string concatenation. -->
+    <plurals name="history_days_worked">
+        <item quantity="one">%1$d day worked</item>
+        <item quantity="other">%1$d days worked</item>
+    </plurals>
+    <string name="history_span_week">this week</string>
+    <string name="history_span_month">this month</string>
+    <string name="history_total">total</string>
+    <string name="history_in">Time In</string>
+    <string name="history_out">Time Out</string>
+    <string name="history_not_yet">not yet</string>
+    <string name="history_no_record">No record</string>
+    <string name="history_view_photos">View photos</string>
+    <string name="history_open_photo">Open the %1$s photo taken at %2$s</string>
+    <string name="history_no_photo_yet">No photo yet</string>
+    <string name="status_working">Working</string>
+    <string name="status_abandoned">Not closed</string>
+
+    <!-- The full-screen photo -->
+    <string name="viewer_proof">PROOF</string>
+    <string name="action_close">Close</string>
+
+    <!-- Profile -->
+    <string name="profile_active">Active account</string>
+    <string name="profile_position">Position</string>
+    <string name="profile_worker_id">Worker ID</string>
+    <string name="profile_change_password">Change password</string>
+    <string name="profile_change_password_sub">Update your login</string>
+    <string name="profile_terms_sub">Read the terms you accepted</string>
+    <!-- "Accepted 3 Aug 2026": the date the acceptance was RECORDED, so
+         a worker can see what the office holds against their name. -->
+    <string name="profile_terms_accepted">Accepted %1$s</string>
+    <!-- Sentence case, unlike the shouted primary actions. On the profile
+         this is the exit, not the thing you came to do. -->
+    <string name="action_log_out">Log out</string>
+
+    <!-- Change password -->
+    <string name="label_new_password">New password</string>
+    <string name="label_confirm_password">Type it again</string>
+    <string name="action_save_password">SAVE PASSWORD</string>
+    <string name="password_rule">Any 8 letters or numbers. Do not share it with anyone.</string>
+    <string name="password_changed">Your password has been changed.</string>
+
+    <!-- ============================================================
+         FAILURES — BILINGUAL, ON PURPOSE.
+
+         Each one tells the worker what to DO: try again, or call the
+         office. A raw server string never reaches the screen.
+         ============================================================ -->
+    <string name="action_retry">TRY AGAIN</string>
+    <string name="action_retry_tl">Subukan ulit</string>
+
     <string name="error_missing_fields">Fill in your email and password.</string>
     <string name="error_missing_fields_tl">Punan ang email at password.</string>
     <string name="error_wrong_credentials">That email and password do not match.</string>
@@ -70,92 +207,12 @@
     <string name="error_server">Something went wrong. Try again.</string>
     <string name="error_server_tl">May nasira. Subukan ulit.</string>
 
-    <!-- Shared actions -->
-    <string name="action_retry">TRY AGAIN</string>
-    <string name="action_retry_tl">Subukan ulit</string>
-    <!-- Sentence case, unlike the shouted primary actions. On the
-         profile this is the exit, not the thing you came to do. -->
-    <string name="action_log_out">Log out</string>
-    <string name="action_log_out_tl">Mag-log out</string>
-    <!-- Dashboard, B3 -->
-    <string name="greeting_afternoon">Magandang hapon,</string>
-    <string name="greeting_evening">Magandang gabi,</string>
-    <string name="step_done_tl">Tapos na</string>
-    <string name="step_locked_tl">Hindi pa</string>
-    <string name="step_working_now_tl">Ginagawa ngayon</string>
-    <string name="step_time_out_now_tl">Pwede na</string>
-    <string name="timed_in_at">Timed in at %1$s</string>
-    <string name="will_sync">Naka-save sa telepono. Ise-send kapag may signal.</string>
-    <string name="hours_total">TOTAL HOURS</string>
-    <!-- "hanggang ngayon" (up to now) is true only while the day is
-         still running. On a closed day it reads as though the clock
-         is still going. -->
-    <string name="hours_total_tl">Kabuuang oras ngayong araw</string>
-    <string name="day_complete">Tapos na ang araw mo. Salamat!</string>
-
-    <!-- The four-step flow. The headings are QUESTIONS, as the design
-         writes them: "Which project today?" tells a worker what to do
-         with the screen; "Select project" only names it. -->
-    <string name="flow_pick_project">Which project today?</string>
-    <string name="flow_pick_project_tl">Saang project ka ngayon?</string>
-    <string name="flow_active_projects">Active projects</string>
-    <string name="flow_last_picked">Ito ang huling pinili mo</string>
-    <string name="flow_missing_project">Kung wala ang project mo dito, sabihin sa admin. Sila ang nagdadagdag ng project.</string>
-    <string name="flow_no_projects">Walang project na naka-lista. Tawagan ang opisina.</string>
-    <string name="flow_take_photo">Take your photo</string>
-    <string name="flow_take_photo_tl">Kumuha ng litrato</string>
-    <string name="flow_camera_hint">Ituro ang camera sa iyong sarili, pagkatapos pindutin ang malaking bilog.</string>
-    <string name="flow_check_photo">Is this photo clear?</string>
-    <string name="flow_check_photo_tl">Malinaw ba ang litrato?</string>
-    <string name="flow_describe">What are you working on?</string>
-    <string name="flow_describe_tl">Ano ang gagawin mo ngayon?</string>
-    <string name="flow_describe_label">Description</string>
-    <string name="flow_describe_optional">(optional)</string>
-    <string name="flow_describe_hint">Hal. Gate 2, may delivery</string>
-    <string name="flow_photo_taken">Litrato: nakuha na</string>
-    <string name="flow_chips_label">Or tap a common one</string>
-    <!-- The design's four. Tapping one is the whole point: this screen is
-         used one-handed, outdoors, often with gloves on. -->
-    <string-array name="flow_description_chips">
-        <item>Block A</item>
-        <item>Masonry</item>
-        <item>Concrete pouring</item>
-        <item>Site clearing</item>
-    </string-array>
-    <string name="flow_done_in">Time In recorded</string>
-    <string name="flow_done_in_tl">Naitala na ang iyong pasok</string>
-    <string name="flow_done_out">Time Out recorded</string>
-    <string name="flow_done_out_tl">Naitala na ang iyong uwi</string>
-    <!-- The confirmation's receipt. A worker walks away from this screen
-         and cannot check it again until the record reaches the server, so
-         it repeats every fact that was just filed under their name. -->
-    <string name="confirm_project">Project</string>
-    <string name="confirm_time_in">Time In</string>
-    <string name="confirm_time_out">Time Out</string>
-    <string name="confirm_date">Date</string>
-    <string name="confirm_note">Note</string>
-    <string name="confirm_total">Total hours</string>
-    <string name="confirm_next_in">Pag-uwi mo, mag-time out ka at pipili ulit ng project.</string>
-    <string name="confirm_next_out">Tapos na ang araw mo. Salamat!</string>
-    <string name="action_back_home">BACK TO HOME</string>
-    <string name="action_back_home_tl">Bumalik sa home</string>
-    <string name="action_back">Bumalik</string>
-    <string name="camera_permission_needed">Kailangan ng camera para sa litrato. Payagan ito sa Settings.</string>
-
-    <string name="action_continue">NEXT — TAKE PHOTO</string>
-    <string name="action_continue_tl">Susunod — kumuha ng litrato</string>
-    <string name="action_take_photo">TAKE PHOTO</string>
-    <string name="action_take_photo_tl">Kumuha ng litrato</string>
-    <string name="action_use_photo">USE THIS PHOTO</string>
-    <string name="action_use_photo_tl">Gamitin ito</string>
-    <string name="action_retake_en">RETAKE</string>
-    <string name="action_retake_tl">Kunan ulit</string>
-    <string name="action_submit_in">SUBMIT TIME IN</string>
-    <string name="action_submit_out">SUBMIT TIME OUT</string>
-    <string name="action_submit_in_tl">Ipasa ang pasok</string>
-    <string name="action_submit_out_tl">Ipasa ang uwi</string>
-    <string name="action_done">DONE</string>
-    <string name="action_done_tl">Tapos na</string>
+    <string name="error_password_short">Use at least 8 characters.</string>
+    <string name="error_password_short_tl">Kailangan ng 8 letra o numero pataas.</string>
+    <string name="error_password_mismatch">The two passwords do not match.</string>
+    <string name="error_password_mismatch_tl">Hindi pareho ang dalawang password.</string>
+    <string name="error_password_reused">That is your current password. Pick a different one.</string>
+    <string name="error_password_reused_tl">Iyan din ang password mo ngayon. Pumili ng iba.</string>
 
     <!-- Why a Time In / Time Out was refused. Each says what to DO. -->
     <string name="att_already_timed_in">You already timed in today.</string>
@@ -176,53 +233,21 @@
     <string name="att_no_owner_tl">Hindi pa naka-link ang account mo. Tawagan ang opisina.</string>
     <string name="att_session_expired">Please log in again.</string>
     <string name="att_session_expired_tl">Mag-log in ulit.</string>
-    <!-- History (screen 10) -->
-    <string name="history_title">My attendance</string>
-    <string name="history_title_tl">Talaan ng aking pasok</string>
-    <string name="history_this_week">This week</string>
-    <string name="history_this_month">This month</string>
-    <!-- "1 days worked" reads as broken English to anyone, in any
-         language. Plurals, not string concatenation. -->
-    <plurals name="history_summary">
-        <item quantity="one">%1$d day worked · %2$s total</item>
-        <item quantity="other">%1$d days worked · %2$s total</item>
-    </plurals>
-    <string name="history_no_record_tl">Walang naitalang pasok</string>
-    <string name="history_in">IN</string>
-    <string name="history_out">OUT</string>
-    <string name="history_total">Total hours</string>
-    <string name="history_open_photo">Open the %1$s photo taken at %2$s</string>
-    <string name="status_complete">Complete</string>
-    <string name="status_working">Working</string>
-    <string name="status_abandoned">Not closed</string>
-    <string name="status_no_record">No record</string>
 
-    <!-- Profile (screen 11) -->
-    <string name="profile_active">Active account</string>
-    <string name="profile_position">Position</string>
-    <string name="profile_worker_id">Worker ID</string>
-    <string name="profile_terms_sub">Basahin ang tinanggap mong Terms</string>
-    <!-- "Accepted 3 Aug 2026": the date the acceptance was RECORDED, so
-         a worker can see what the office holds against their name. -->
-    <string name="profile_terms_accepted">Accepted %1$s</string>
-    <string name="action_close">CLOSE</string>
-    <string name="action_close_tl">Isara</string>
+    <!-- Location refusals (0069). BILINGUAL, like every other failure
+         notice: the screens are English-only on purpose, and the moments
+         something goes wrong are the ones where a worker most needs
+         their own language. -->
+    <string name="att_outside_radius">You are too far from the project to record attendance. Move closer to the site and try again.</string>
+    <string name="att_outside_radius_tl">Masyado kang malayo sa proyekto para makapagtala. Lumapit sa site at subukan ulit.</string>
 
-    <!-- Change password (screen 11) -->
-    <string name="profile_change_password">Change password</string>
-    <string name="profile_change_password_tl">Palitan ang password</string>
-    <string name="label_new_password">New password</string>
-    <string name="label_new_password_tl">Bagong password</string>
-    <string name="label_confirm_password">Type it again</string>
-    <string name="label_confirm_password_tl">Ulitin ang bagong password</string>
-    <string name="action_save_password">SAVE PASSWORD</string>
-    <string name="action_save_password_tl">I-save</string>
-    <string name="password_rule">Kahit anong 8 letra o numero. Huwag ibigay kaninuman.</string>
-    <string name="password_changed">Napalitan na ang password mo.</string>
-    <string name="error_password_short">Use at least 8 characters.</string>
-    <string name="error_password_short_tl">Kailangan ng 8 letra o numero pataas.</string>
-    <string name="error_password_mismatch">The two passwords do not match.</string>
-    <string name="error_password_mismatch_tl">Hindi pareho ang dalawang password.</string>
-    <string name="error_password_reused">That is your current password. Pick a different one.</string>
-    <string name="error_password_reused_tl">Iyan din ang password mo ngayon. Pumili ng iba.</string>
+    <string name="att_mock_location">This phone is reporting a fake location. Turn off any mock location app, then try again.</string>
+    <string name="att_mock_location_tl">Nagre-report ang telepono na ito ng pekeng lokasyon. I-off ang anumang mock location app, tapos subukan ulit.</string>
+
+    <string name="att_location_denied">Attendance needs your location. Turn on Location permission for this app in Settings.</string>
+    <string name="att_location_denied_tl">Kailangan ng lokasyon mo para makapagtala. I-on ang Location permission para sa app na ito sa Settings.</string>
+
+    <string name="att_geofence_missing">This project has no location set yet. Tell your admin — it cannot be fixed from the app.</string>
+    <string name="att_geofence_missing_tl">Wala pang nakatakdang lokasyon ang proyektong ito. Sabihan ang admin — hindi ito maaayos mula sa app.</string>
+
 </resources>

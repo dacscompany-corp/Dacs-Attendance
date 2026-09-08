@@ -13,6 +13,7 @@ import com.dacs.attendance.data.repo.SupabaseAttendanceRepository
 import com.dacs.attendance.data.repo.toEntity
 import com.dacs.attendance.domain.AttendanceFailure
 import com.dacs.attendance.domain.QueueOutcome
+import com.dacs.attendance.domain.ProjectSystem
 import com.dacs.attendance.domain.QueuedSubmission
 import com.dacs.attendance.domain.TimeDirection
 import com.dacs.attendance.domain.nextToSend
@@ -83,9 +84,21 @@ class SubmissionWorker @AssistedInject constructor(
             return Result.success()
         }
 
+        // A row queued before 0059 names an integer id from a project list
+        // the server has dropped, and carries no system. There is nothing
+        // to send it against, so it fails here rather than being retried
+        // forever against a project that no longer exists.
+        val system = ProjectSystem.of(row.projectSystem)
+        if (system == null) {
+            Log.e(TAG, "no project system on ${row.eventId}; failing permanently")
+            database.pendingSubmissions().markFailed(row.eventId, "PROJECT_RETIRED")
+            return Result.success()
+        }
+
         val result = remote.submit(
             SubmissionRequest(
                 direction = TimeDirection.valueOf(row.direction),
+                projectSystem = system,
                 projectId = row.projectId,
                 capturedAt = Instant.ofEpochMilli(row.capturedAt),
                 photo = photo,
@@ -113,9 +126,29 @@ class SubmissionWorker @AssistedInject constructor(
                 val failure = AttendanceFailure.of(error)
                 database.pendingSubmissions().recordAttempt(row.eventId, failure.name)
 
+                // What the server actually said, not just the enum it maps to.
+                // AttendanceFailure.Unexpected is the catch-all for anything we
+                // have no code for -- so the one case where the enum tells you
+                // nothing is exactly the case you need to debug. This queue
+                // retries for days; without the underlying reason there is no
+                // way to find out why.
+                //
+                // The FIRST LINE only, and never the throwable itself. supabase
+                // -kt puts the whole request in its message -- including
+                // "Authorization: Bearer <the worker's access token>" -- and
+                // passing the exception to Log would write that token into
+                // logcat on every retry. The first line carries the reason
+                // ("new row violates row-level security policy") and none of
+                // the credentials.
+                if (failure == AttendanceFailure.Unexpected) {
+                    val reason = (error.message ?: error::class.java.simpleName)
+                        .lineSequence().firstOrNull().orEmpty().take(200)
+                    Log.e(TAG, "unmapped failure for ${row.eventId}: $reason")
+                }
+
                 when (outcomeFor(failure)) {
                     QueueOutcome.Retry -> {
-                        Log.w(TAG, "retrying ${row.eventId}: $failure")
+                        Log.w(TAG, "retrying ${row.eventId} (attempt ${row.attempts + 1}): $failure")
                         return Result.retry()
                     }
 

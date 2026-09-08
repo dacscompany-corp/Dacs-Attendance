@@ -34,8 +34,8 @@ fun FailureNotice(failure: LoginFailure, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(DangerTint, RoundedCornerShape(Dimens.RadiusMedium))
-            .border(1.dp, DangerBorder, RoundedCornerShape(Dimens.RadiusMedium))
+            .background(DangerTint, RoundedCornerShape(Dimens.RadiusField))
+            .border(1.dp, DangerBorder, RoundedCornerShape(Dimens.RadiusField))
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(3.dp)
     ) {

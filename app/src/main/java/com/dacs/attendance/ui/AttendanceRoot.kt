@@ -1,5 +1,6 @@
 package com.dacs.attendance.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,7 +12,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -24,9 +24,9 @@ import com.dacs.attendance.R
 import com.dacs.attendance.domain.LoginFailure
 import com.dacs.attendance.domain.TimeDirection
 import com.dacs.attendance.domain.WorkerProfile
-import com.dacs.attendance.ui.components.BilingualText
 import com.dacs.attendance.ui.components.FailureNotice
 import com.dacs.attendance.ui.components.PrimaryActionButton
+import com.dacs.attendance.ui.components.SecondaryActionButton
 import com.dacs.attendance.ui.components.WorkerBottomNav
 import com.dacs.attendance.ui.components.WorkerTab
 import com.dacs.attendance.ui.dashboard.DashboardScreen
@@ -35,9 +35,9 @@ import com.dacs.attendance.ui.profile.ProfileScreen
 import com.dacs.attendance.ui.login.LoginScreen
 import com.dacs.attendance.ui.terms.TermsScreen
 import com.dacs.attendance.ui.timeflow.TimeFlowScreen
+import com.dacs.attendance.ui.theme.Canvas
 import com.dacs.attendance.ui.theme.Dimens
 import com.dacs.attendance.ui.theme.Green
-import com.dacs.attendance.ui.theme.TextMuted
 
 /**
  * The gate, as a state machine rather than a navigation graph.
@@ -45,8 +45,6 @@ import com.dacs.attendance.ui.theme.TextMuted
  * Login and Terms are not places a worker can navigate BETWEEN -- there
  * is no back from Terms to login, and no forward past Terms without
  * accepting. Modelling that as routes would mean guarding every edge.
- * The four-step Time In/Out flow in B3 is genuine navigation and gets a
- * real NavHost; this is not that.
  */
 @Composable
 fun AttendanceRoot(
@@ -86,7 +84,7 @@ fun AttendanceRoot(
 @Composable
 private fun LoadingScreen(modifier: Modifier = Modifier) {
     Column(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize().background(Canvas),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -108,7 +106,8 @@ private fun GateUnavailableScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(Dimens.ScreenPadding),
+            .background(Canvas)
+            .padding(Dimens.SheetPadding),
         verticalArrangement = Arrangement.spacedBy(Dimens.GapMedium, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -119,28 +118,26 @@ private fun GateUnavailableScreen(
         )
         FailureNotice(LoginFailure.NoConnection)
         PrimaryActionButton(
-            english = stringResource(R.string.action_retry),
-            tagalog = stringResource(R.string.action_retry_tl),
+            label = stringResource(R.string.action_retry),
             onClick = onRetry
         )
-        PrimaryActionButton(
-            english = stringResource(R.string.action_log_out),
-            tagalog = stringResource(R.string.action_log_out_tl),
-            onClick = onSignOut,
-            container = TextMuted
+        // Quieter than retry: signing out here loses nothing, but it is
+        // not what the worker came to do.
+        SecondaryActionButton(
+            label = stringResource(R.string.action_log_out),
+            onClick = onSignOut
         )
     }
 }
 
 /**
- * The signed-in half of the app: the dashboard, and the four-step flow
- * launched from it.
+ * The signed-in half of the app: the three tabs, and the four-step flow
+ * launched from Home.
  *
- * Held as state rather than a nav graph for the same reason the gate is:
- * the flow is modal. A worker in the middle of recording a Time In has
- * one way forward and one way back, and there is no third place to
- * navigate to. B4's history and profile tabs are genuine navigation and
- * will bring a NavHost with them.
+ * Held as state rather than a nav graph because the flow is MODAL. A
+ * worker halfway through a Time In has one way forward and one way back,
+ * and offering a tab to wander off to would lose the photo they already
+ * took.
  */
 @Composable
 private fun SignedInArea(
@@ -156,10 +153,7 @@ private fun SignedInArea(
 
     val direction = flow
     if (direction != null) {
-        // The flow is MODAL: no bottom bar while recording. A worker
-        // halfway through a Time In has one way forward and one way
-        // back, and offering a tab to wander off to would lose the photo
-        // they already took.
+        // No bottom bar while recording.
         TimeFlowScreen(
             direction = direction,
             onFinished = {
@@ -178,6 +172,10 @@ private fun SignedInArea(
                 WorkerTab.HOME -> DashboardScreen(
                     worker = worker,
                     onStartFlow = { flow = it },
+                    // "See all" above the week strip is the same journey
+                    // as tapping History, so it moves the same tab rather
+                    // than opening a second copy of the screen.
+                    onSeeHistory = { tab = WorkerTab.HISTORY },
                     refreshKey = reloadKey
                 )
                 WorkerTab.HISTORY -> HistoryScreen()

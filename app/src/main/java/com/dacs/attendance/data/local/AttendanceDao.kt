@@ -98,7 +98,7 @@ interface CachedProjectDao {
         CachedRecordEntity::class,
         CachedProjectEntity::class
     ],
-    version = 2,
+    version = 4,
     exportSchema = true
 )
 abstract class AttendanceDatabase : RoomDatabase() {

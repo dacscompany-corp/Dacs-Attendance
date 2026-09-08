@@ -75,3 +75,48 @@ fun historySummary(days: List<HistoryDay>): HistorySummary {
         totalMinutes = worked.sumOf { it.record?.totalMinutes ?: 0 }
     )
 }
+
+/**
+ * One cell of the Home screen week strip.
+ *
+ * [worked] is "there is a record for this day", which is the only claim
+ * the strip makes. It deliberately says nothing about hours: a day that
+ * is open (timed in, not yet out) is still a day the worker turned up.
+ */
+data class WeekDayCell(
+    val date: LocalDate,
+    /** Two letters, as the design draws them: Mo Tu We Th Fr Sa. */
+    val label: String,
+    val worked: Boolean,
+    val isToday: Boolean,
+    /** Later this week. Drawn dimmer, because nothing is missing yet. */
+    val future: Boolean
+)
+
+/**
+ * Monday to Saturday of the week [today] falls in.
+ *
+ * SIX cells, not seven. The design shows a six-day working week and DACs
+ * does not schedule Sunday work, so a permanently empty seventh column
+ * would read as a day the worker keeps failing to record.
+ */
+fun weekStrip(
+    records: List<AttendanceRecord>,
+    today: LocalDate = LocalDate.now(AttendanceZone)
+): List<WeekDayCell> {
+    val monday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+    val worked = records.map { it.workDate }.toSet()
+
+    return (0L until 6L).map { offset ->
+        val day = monday.plusDays(offset)
+        WeekDayCell(
+            date = day,
+            label = day.dayOfWeek
+                .getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.ENGLISH)
+                .take(2),
+            worked = worked.contains(day.toString()),
+            isToday = day == today,
+            future = day.isAfter(today)
+        )
+    }
+}

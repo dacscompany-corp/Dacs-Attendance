@@ -31,7 +31,11 @@ data class TimeFlowUiState(
     val step: FlowStep = FlowStep.PickProject,
     val projects: List<AttendanceProject> = emptyList(),
     val loadingProjects: Boolean = true,
-    val selectedProjectId: Long? = null,
+    /**
+     * The picked project as "system:id". A bare id is not enough since
+     * 0059 -- 'pc' and 'pm' ids come from different tables.
+     */
+    val selectedProjectKey: String? = null,
     val photo: CapturedPhoto? = null,
     val description: String = "",
     val submitting: Boolean = false,
@@ -39,7 +43,7 @@ data class TimeFlowUiState(
     val saved: AttendanceRecord? = null
 ) {
     val selectedProject: AttendanceProject?
-        get() = projects.firstOrNull { it.id == selectedProjectId }
+        get() = projects.firstOrNull { it.key == selectedProjectKey }
 
     /** "Step 2 of 4" in the design's counter. Confirmation is not a step. */
     val stepNumber: Int
@@ -92,7 +96,7 @@ class TimeFlowViewModel @Inject constructor(
                             // project case still costs one tap, which is
                             // the design's own choice (it wants the
                             // worker to see which project they picked).
-                            selectedProjectId = it.selectedProjectId
+                            selectedProjectKey = it.selectedProjectKey
                         )
                     }
                 },
@@ -112,11 +116,11 @@ class TimeFlowViewModel @Inject constructor(
         loadProjects()
     }
 
-    fun onProjectSelected(projectId: Long) =
-        _uiState.update { it.copy(selectedProjectId = projectId, failure = null) }
+    fun onProjectSelected(projectKey: String) =
+        _uiState.update { it.copy(selectedProjectKey = projectKey, failure = null) }
 
     fun onProjectConfirmed() {
-        if (_uiState.value.selectedProjectId == null) return
+        if (_uiState.value.selectedProject == null) return
         _uiState.update { it.copy(step = FlowStep.TakePhoto) }
     }
 
@@ -153,7 +157,9 @@ class TimeFlowViewModel @Inject constructor(
         // feedback, and a worker who taps SUBMIT again.
         if (state.submitting) return
 
-        val projectId = state.selectedProjectId ?: return
+        // The whole project, not just its key: the RPC needs the system
+        // and the id as separate arguments.
+        val project = state.selectedProject ?: return
         val photo = state.photo ?: return
 
         _uiState.update { it.copy(submitting = true, failure = null) }
@@ -161,7 +167,8 @@ class TimeFlowViewModel @Inject constructor(
             val result = attendance.submit(
                 SubmissionRequest(
                     direction = state.direction,
-                    projectId = projectId,
+                    projectSystem = project.system,
+                    projectId = project.id,
                     capturedAt = photo.capturedAt,
                     photo = photo.file,
                     description = state.description.trim().takeIf { it.isNotEmpty() },

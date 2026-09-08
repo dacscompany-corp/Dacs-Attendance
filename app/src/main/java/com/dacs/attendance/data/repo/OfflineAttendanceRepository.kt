@@ -9,6 +9,7 @@ import com.dacs.attendance.data.local.AttendanceDatabase
 import com.dacs.attendance.domain.AttendanceProject
 import com.dacs.attendance.domain.AttendanceRecord
 import com.dacs.attendance.domain.AttendanceStatus
+import com.dacs.attendance.domain.ProjectSystem
 import com.dacs.attendance.domain.TimeDirection
 import com.dacs.attendance.domain.TodayDecision
 import com.dacs.attendance.domain.reconcileToday
@@ -59,8 +60,13 @@ class OfflineAttendanceRepository @Inject constructor(
         runCatchingExceptCancellation {
             val workerId = currentWorkerId()
             val workDate = WorkDate.of(request.capturedAt).toString()
+            // Matched on the PAIR. Since 0059 an id alone is ambiguous:
+            // 'pc' ids come from folders and 'pm' ids from
+            // construction_projects, and nothing stops the two colliding.
             val projectName = database.cachedProjects().all(workerId)
-                .firstOrNull { it.id == request.projectId }?.name
+                .firstOrNull {
+                    it.id == request.projectId && it.system == request.projectSystem.wire
+                }?.name
                 ?: ""
 
             // Caption burned in and compressed BEFORE the row is queued:
@@ -78,6 +84,7 @@ class OfflineAttendanceRepository @Inject constructor(
                     eventId = request.eventId,
                     workerId = workerId,
                     direction = request.direction.name,
+                    projectSystem = request.projectSystem.wire,
                     projectId = request.projectId,
                     projectName = projectName,
                     capturedAt = request.capturedAt.toEpochMilli(),
@@ -245,14 +252,21 @@ class OfflineProjectRepository @Inject constructor(
             if (projects.isNotEmpty()) {
                 database.cachedProjects().replaceAll(
                     workerId,
-                    projects.map { CachedProjectEntity(workerId, it.id, it.name) }
+                    projects.map {
+                        CachedProjectEntity(workerId, it.system.wire, it.id, it.name)
+                    }
                 )
             }
             return Result.success(projects)
         }
 
+        // A cached row whose system this build no longer knows is dropped
+        // rather than guessed at: offering a project the flow cannot
+        // submit against just moves the failure four screens later.
         val cached = database.cachedProjects().all(workerId)
-            .map { AttendanceProject(it.id, it.name) }
+            .mapNotNull { row ->
+                ProjectSystem.of(row.system)?.let { AttendanceProject(it, row.id, row.name) }
+            }
         return if (cached.isNotEmpty()) Result.success(cached) else fresh
     }
 }

@@ -2,11 +2,46 @@ package com.dacs.attendance.domain
 
 import java.time.Instant
 
+/**
+ * WHICH project list a project came from.
+ *
+ * Attendance keeps no project list of its own. Migration 0059 retired
+ * `attendance_projects` and pointed attendance at the two lists the
+ * business already runs, whose ids live in different tables and could
+ * collide:
+ *
+ *   PC -> folders               (Project Control)
+ *   PM -> construction_projects (Project Management)
+ *
+ * So a project is identified by the PAIR, never by the id alone. Passing
+ * an id without its system is the one mistake this type exists to stop.
+ */
+enum class ProjectSystem(val wire: String) {
+    PC("pc"),
+    PM("pm");
+
+    companion object {
+        /** Null for anything the server has not taught us about yet. */
+        fun of(wire: String?): ProjectSystem? =
+            entries.firstOrNull { it.wire == wire?.lowercase() }
+    }
+}
+
 /** A project a worker may record attendance against. */
 data class AttendanceProject(
-    val id: Long,
+    val system: ProjectSystem,
+    /** A uuid since 0059. It is only unique WITHIN [system]. */
+    val id: String,
     val name: String
-)
+) {
+    /**
+     * The pair as one string, for list keys and equality checks.
+     *
+     * Never send this to the server -- the RPCs take the system and the
+     * id as separate arguments.
+     */
+    val key: String get() = "${system.wire}:$id"
+}
 
 /**
  * The section 14 status machine, as the database spells it. `abandoned`

@@ -26,7 +26,15 @@ data class PendingSubmissionEntity(
     val workerId: String = "",
     /** "IN" or "OUT" -- stored as text so the table is readable in a dump. */
     val direction: String,
-    val projectId: Long,
+    /**
+     * "pc" or "pm" -- WHICH project list [projectId] belongs to. Empty on
+     * rows queued before 0059, which can never be sent: the project list
+     * they referenced no longer exists. Those rows are flagged failed by
+     * the v2->v3 migration rather than left to retry forever.
+     */
+    val projectSystem: String = "",
+    /** A uuid since 0059, and only unique within [projectSystem]. */
+    val projectId: String,
     /** Snapshotted so the queue can render without the project list. */
     val projectName: String,
     /** Epoch millis of the SHUTTER, not of the upload. */
@@ -38,6 +46,22 @@ data class PendingSubmissionEntity(
     val accuracyMetres: Double?,
     /** True when the device had no connection at capture time. Admin-facing only. */
     val wasOffline: Boolean,
+    /**
+     * What the device observed about being located, at the SHUTTER.
+     *
+     * Only [isMock] and [permissionDenied] are sent: the server cannot
+     * see either (both arrive as null coordinates) and only the device
+     * can tell them apart. Everything else about the location -- the
+     * distance, the fence, the verdict -- the server recomputes from its
+     * own effective-dated geofence, and that answer is the one stored.
+     *
+     * [locationStatus] is therefore LOCAL ONLY, kept so a queued row can
+     * explain itself on screen. Deliberately not uploaded: a second copy
+     * of a verdict the server also computes is a copy that can disagree.
+     */
+    val isMock: Boolean = false,
+    val permissionDenied: Boolean = false,
+    val locationStatus: String? = null,
     val attempts: Int = 0,
     /** The last refusal, kept so a permanently failed row can explain itself. */
     val lastError: String?= null,
@@ -75,11 +99,33 @@ data class CachedRecordEntity(
  * Without it the picker is empty offline and the entire flow is dead at
  * step 1 -- the spec calls this out explicitly.
  */
-@Entity(tableName = "cached_project", primaryKeys = ["workerId", "id"])
+@Entity(tableName = "cached_project", primaryKeys = ["workerId", "system", "id"])
 data class CachedProjectEntity(
     /** Projects belong to a worker's OWNER, so they are cached per
      *  worker too -- a different worker may have a different owner. */
     val workerId: String = "",
-    val id: Long,
-    val name: String
+    /**
+     * "pc" (folders) or "pm" (construction_projects). Part of the key,
+     * not a label: the two systems are separate id spaces, so an id is
+     * only unique alongside the system it came from.
+     */
+    val system: String,
+    val id: String,
+    val name: String,
+    /**
+     * The project's fence, cached so the device can pre-check at the
+     * shutter with no signal.
+     *
+     * The device only ever holds the CURRENT fence. The server keeps them
+     * effective-dated (migration 0068) and re-checks against whichever
+     * one was in force at capture, which is why its answer is the
+     * authoritative one and this is only a pre-check.
+     *
+     * Null means no fence configured. That is not a refusal on its own --
+     * see LocationVerification.locationRefuses.
+     */
+    val geofenceLat: Double? = null,
+    val geofenceLng: Double? = null,
+    val geofenceRadiusM: Double? = null,
+    val geofenceEnabled: Boolean = true
 )

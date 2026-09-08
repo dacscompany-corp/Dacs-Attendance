@@ -11,19 +11,26 @@ import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Apartment
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,8 +42,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
@@ -44,43 +54,46 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.dacs.attendance.R
 import com.dacs.attendance.domain.photoOverlayCaptionLines
-import com.dacs.attendance.ui.theme.BorderDefault
+import com.dacs.attendance.ui.components.FlowHeader
 import com.dacs.attendance.ui.theme.Dimens
 import com.dacs.attendance.ui.theme.Green
 import com.dacs.attendance.ui.theme.MonoFamily
 import com.dacs.attendance.ui.theme.PreviewBackdrop
-import com.dacs.attendance.ui.theme.TextMuted
 import java.io.File
 import java.time.Instant
 import java.util.concurrent.Executor
 import kotlinx.coroutines.delay
 
 /**
- * Screen 05. The selfie that proves attendance.
+ * Step 2. The selfie that proves attendance.
  *
  * FRONT camera and no gallery picker anywhere in the app -- a photo that
  * must be taken now, at the site, by the person holding the phone, is the
- * cheapest anti-spoofing measure available.
+ * cheapest anti-spoofing measure available. That is also why the design's
+ * camera-switch control is not built: it would undo the whole point of
+ * the screen. See the note on [ShutterRow].
  *
- * The caption across the bottom of the preview is the SAME text that
- * [photoOverlayCaption] burns into the file, shown before the shutter
- * rather than after. A worker who can see what is about to be stamped on
- * their photo can catch a wrong project or a wrong phone clock while it
- * still costs one tap to fix, instead of discovering it in a report.
+ * The caption at the top of the preview is the SAME text that gets burned
+ * into the file, shown before the shutter rather than after. A worker who
+ * can see what is about to be stamped on their photo can catch a wrong
+ * project or a wrong phone clock while it still costs one tap to fix,
+ * instead of discovering it in a report.
  */
 @Composable
-fun CameraCapture(
+fun CameraStep(
+    projectName: String?,
     onPhotoTaken: (File, Instant) -> Unit,
-    modifier: Modifier = Modifier,
-    projectName: String? = null,
-    accent: Color = Green
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -108,17 +121,30 @@ fun CameraCapture(
         }
     }
 
-    Column(
-        modifier = modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(Dimens.GapMedium),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
+    Column(modifier = modifier.fillMaxSize().background(PreviewBackdrop)) {
+        FlowHeader(
+            step = 2,
+            total = 4,
+            accent = Color.White,
+            onBack = onBack,
+            inlineTitle = stringResource(R.string.flow_take_photo),
+            inlineSubtitle = stringResource(R.string.flow_take_photo_sub),
+            dark = true,
+            modifier = Modifier.padding(
+                start = Dimens.ScreenPadding,
+                end = Dimens.ScreenPadding,
+                top = 6.dp,
+                bottom = 14.dp
+            )
+        )
+
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
-                .clip(RoundedCornerShape(Dimens.RadiusLarge))
-                .background(PreviewBackdrop),
+                .padding(horizontal = 14.dp)
+                .clip(RoundedCornerShape(Dimens.RadiusPhoto))
+                .background(Color(0xFF1E211E)),
             contentAlignment = Alignment.Center
         ) {
             if (granted) {
@@ -129,85 +155,47 @@ fun CameraCapture(
                             view.scaleType = PreviewView.ScaleType.FILL_CENTER
                         }
                     },
-                    update = { view ->
-                        bindCamera(view, lifecycleOwner, imageCapture)
-                    }
+                    update = { view -> bindCamera(view, lifecycleOwner, imageCapture) }
                 )
 
-                // The design's framing rectangle: where to put your face.
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(22.dp)
-                        .border(
-                            2.dp,
-                            Color.White.copy(alpha = 0.28f),
-                            RoundedCornerShape(14.dp)
-                        )
-                )
+                FaceGuide(Modifier.fillMaxSize())
 
                 projectName?.let { project ->
                     val (name, stamp) = photoOverlayCaptionLines(project, now)
-                    Column(
-                        modifier = Modifier
-                            .align(Alignment.BottomStart)
-                            .fillMaxWidth()
-                            // A scrim, not a solid bar: the caption has to
-                            // stay readable over a bright sky and over a
-                            // dark wall, and the photo behind it is the
-                            // thing the worker is actually framing.
-                            .background(
-                                Brush.verticalGradient(
-                                    listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f))
-                                )
-                            )
-                            .padding(horizontal = 14.dp, vertical = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        // Two lines, because the joined caption does not
-                        // fit across a phone and it was the TIME that got
-                        // cut. The name may ellipsise; the stamp never.
-                        Text(
-                            text = name,
-                            fontFamily = MonoFamily,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.White.copy(alpha = 0.85f),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = stamp,
-                            fontFamily = MonoFamily,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.White.copy(alpha = 0.85f),
-                            maxLines = 1
-                        )
-                    }
+                    StampChip(
+                        name = name,
+                        stamp = stamp,
+                        modifier = Modifier.align(Alignment.TopCenter).padding(14.dp)
+                    )
                 }
+
+                Text(
+                    text = stringResource(R.string.flow_camera_hint),
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp,
+                    color = Color.White.copy(alpha = 0.85f),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(14.dp)
+                )
             } else {
                 // Not a dead end: the launcher above already asked, and
                 // this explains why the screen is empty if they refused.
                 Text(
                     text = stringResource(R.string.camera_permission_needed),
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodyLarge,
                     color = Color.White.copy(alpha = 0.75f),
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(Dimens.ScreenPadding)
+                    modifier = Modifier.padding(Dimens.SheetPadding)
                 )
             }
         }
 
-        Text(
-            text = stringResource(R.string.flow_camera_hint),
-            style = MaterialTheme.typography.bodyMedium,
-            color = TextMuted,
-            textAlign = TextAlign.Center
-        )
-
-        ShutterButton(
+        ShutterRow(
             enabled = granted && !capturing,
             capturing = capturing,
-            accent = accent,
             onClick = {
                 capturing = true
                 imageCapture.takeInto(context) { file, takenAt ->
@@ -220,46 +208,152 @@ fun CameraCapture(
 }
 
 /**
- * The design's "malaking bilog", and the hint above it says so by name.
+ * The dashed oval: where to put your face.
  *
- * A circle carries no label, so the bilingual text every other action in
- * this app shows moves into [contentDescription] -- a worker using
- * TalkBack still hears "Take photo / Kumuha ng litrato".
+ * Drawn rather than bordered because Compose has no dashed
+ * Modifier.border, and a solid ring reads as a mask the photo will be
+ * cropped to -- which it is not. The dashes say "aim here", not "this is
+ * the frame".
  */
 @Composable
-private fun ShutterButton(
-    enabled: Boolean,
-    capturing: Boolean,
-    accent: Color,
-    onClick: () -> Unit
-) {
-    val ring = if (enabled || capturing) accent else BorderDefault
+private fun FaceGuide(modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        // PROPORTIONAL, not the design's fixed 270dp. The mock draws the
+        // preview at one size; a real one is whatever is left after the
+        // header and the shutter, and it changes with the phone. Pinning
+        // the oval to dp put it half off the bottom of a tall preview.
+        val ovalWidth = size.width * 0.71f
+        val ovalHeight = minOf(ovalWidth * 1.45f, size.height * 0.56f)
+        if (ovalHeight <= 0f) return@Canvas
 
-    Box(
-        modifier = Modifier
-            .size(96.dp)
-            .clip(CircleShape)
-            // clickable BEFORE the ring and the inset, so the whole 96dp
-            // is the target. Hanging it on the inner disc instead would
-            // make the outer 11dp look pressable and do nothing.
-            .clickable(enabled = enabled, onClick = onClick)
-            .border(5.dp, ring, CircleShape)
-            .semantics {
-                contentDescription = "Take photo / Kumuha ng litrato"
-                role = Role.Button
-            },
-        contentAlignment = Alignment.Center
+        drawOval(
+            color = Color.White.copy(alpha = 0.3f),
+            topLeft = Offset(
+                x = (size.width - ovalWidth) / 2f,
+                // Above centre: a face held at arm's length sits in the
+                // top half of the frame, and an oval pinned to the middle
+                // makes people lower the phone.
+                y = size.height * 0.12f
+            ),
+            size = Size(ovalWidth, ovalHeight),
+            style = Stroke(
+                width = 2.dp.toPx(),
+                pathEffect = PathEffect.dashPathEffect(
+                    floatArrayOf(12.dp.toPx(), 10.dp.toPx())
+                )
+            )
+        )
+    }
+}
+
+/** The project and stamp about to be burned in, over the live preview. */
+@Composable
+private fun StampChip(name: String, stamp: String, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(
+                Color.Black.copy(alpha = 0.45f),
+                RoundedCornerShape(Dimens.RadiusField)
+            )
+            .padding(horizontal = 13.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        if (capturing) {
-            CircularProgressIndicator(color = accent)
-        } else {
+        Icon(
+            imageVector = Icons.Filled.Apartment,
+            contentDescription = null,
+            tint = Color.White,
+            modifier = Modifier.size(17.dp)
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            // Two lines, because the joined caption does not fit across a
+            // phone and it was the TIME that got cut. The name may
+            // ellipsise; the stamp never.
+            Text(
+                text = name,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 13.sp,
+                lineHeight = 18.sp,
+                color = Color.White,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = stamp,
+                fontFamily = MonoFamily,
+                fontSize = 12.sp,
+                lineHeight = 16.sp,
+                color = Color.White.copy(alpha = 0.7f),
+                maxLines = 1
+            )
+        }
+    }
+}
+
+/**
+ * The shutter, alone.
+ *
+ * The design flanks it with a flash toggle and a camera-switch. Neither
+ * is built, deliberately:
+ *   - switching cameras defeats the front-camera-only rule this whole
+ *     screen exists to enforce;
+ *   - a flash control on a front camera is inert on most of the phones
+ *     this app targets, and a button that does nothing on the screen
+ *     where a worker is already unsure is worse than no button.
+ * The shutter keeps the design's size, ring and centring.
+ */
+@Composable
+private fun ShutterRow(enabled: Boolean, capturing: Boolean, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(
+                start = Dimens.ScreenPadding,
+                end = Dimens.ScreenPadding,
+                top = 18.dp,
+                bottom = Dimens.BottomPadding
+            ),
+        horizontalArrangement = Arrangement.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(Dimens.Shutter)
+                .clip(CircleShape)
+                // clickable BEFORE the ring and the inset, so the whole
+                // 78dp is the target. Hanging it on the inner disc instead
+                // would make the outer ring look pressable and do nothing.
+                .clickable(enabled = enabled, onClick = onClick)
+                .border(4.dp, Color.White.copy(alpha = if (enabled) 0.85f else 0.3f), CircleShape)
+                .padding(5.dp)
+                .semantics {
+                    contentDescription = "Take photo"
+                    role = Role.Button
+                },
+            contentAlignment = Alignment.Center
+        ) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(6.dp)
                     .clip(CircleShape)
-                    .background(ring)
-            )
+                    .background(Color.White),
+                contentAlignment = Alignment.Center
+            ) {
+                if (capturing) {
+                    CircularProgressIndicator(
+                        color = Green,
+                        strokeWidth = 3.dp,
+                        modifier = Modifier.size(30.dp)
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Filled.PhotoCamera,
+                        contentDescription = null,
+                        tint = Green,
+                        modifier = Modifier.size(30.dp)
+                    )
+                }
+            }
         }
     }
 }

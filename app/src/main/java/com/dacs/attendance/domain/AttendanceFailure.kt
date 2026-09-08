@@ -37,6 +37,30 @@ enum class AttendanceFailure {
     AccountInactive,
     NotAWorker,
 
+    /**
+     * Location refusals (0069). Only the ones where the location is
+     * KNOWN BAD reach here -- a vague fix or no fix at all is recorded
+     * and flagged, never refused, so it never becomes a failure a worker
+     * has to read.
+     */
+
+    /** Demonstrably somewhere other than the project. */
+    OutsideRadius,
+
+    /** A fake GPS provider. Never accidental. */
+    MockLocation,
+
+    /**
+     * The worker declined the location permission. The one refusal on
+     * this list they can fix themselves -- and on Android that may mean
+     * going to system settings, because a permanent denial cannot be
+     * re-prompted.
+     */
+    LocationPermissionDenied,
+
+    /** No fence configured for this project, once fences are required. */
+    ProjectGeofenceUnavailable,
+
     /** The session expired mid-flow; the worker must log in again. */
     SessionExpired,
 
@@ -69,7 +93,15 @@ enum class AttendanceFailure {
             "NO_OWNER_ASSIGNED" to NoOwnerAssigned,
             "ACCOUNT_INACTIVE" to AccountInactive,
             "NOT_A_WORKER" to NotAWorker,
-            "AUTH_REQUIRED" to SessionExpired
+            "AUTH_REQUIRED" to SessionExpired,
+            // 0069 raises these as the upper-cased §33 result code.
+            // PROJECT_GEOFENCE_UNAVAILABLE does NOT contain the substring
+            // PROJECT_UNAVAILABLE, so the two cannot shadow each other
+            // whatever order they sit in.
+            "OUTSIDE_RADIUS" to OutsideRadius,
+            "MOCK_LOCATION" to MockLocation,
+            "PERMISSION_DENIED" to LocationPermissionDenied,
+            "PROJECT_GEOFENCE_UNAVAILABLE" to ProjectGeofenceUnavailable
         )
     }
 }

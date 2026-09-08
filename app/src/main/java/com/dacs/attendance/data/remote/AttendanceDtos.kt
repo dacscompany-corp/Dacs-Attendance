@@ -3,20 +3,39 @@ package com.dacs.attendance.data.remote
 import com.dacs.attendance.domain.AttendanceProject
 import com.dacs.attendance.domain.AttendanceRecord
 import com.dacs.attendance.domain.AttendanceStatus
+import com.dacs.attendance.domain.ProjectSystem
+import com.dacs.attendance.domain.RewardDay
+import com.dacs.attendance.domain.RewardDayStatus
 import java.time.Instant
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
+/**
+ * One row of `attendance_projects_for_worker()`.
+ *
+ * The column names are the function's own, and they are deliberately not
+ * `system` / `name`: 0059 renamed them because `name` is a built-in type
+ * and both would have shadowed the columns the function body selects.
+ *
+ * This is an RPC, not a table read, and that is a SECURITY decision made
+ * on the server: workers have no select on `folders`, because the money
+ * hanging off it (budgets, contract values) is owner-confidential. A
+ * function returning three columns cannot leak a fourth.
+ */
 @Serializable
 data class ProjectRow(
-    val id: Long,
-    val name: String
+    @SerialName("project_system") val system: String,
+    @SerialName("project_id") val id: String,
+    @SerialName("project_name") val name: String
 ) {
-    fun toDomain() = AttendanceProject(id = id, name = name)
-
-    companion object {
-        const val COLUMNS = "id,name"
-    }
+    /**
+     * Null when the server names a project system this build does not
+     * know. Dropping the row is the safe reading: a project we cannot
+     * label cannot be submitted either, and showing it would offer the
+     * worker a choice that fails four screens later.
+     */
+    fun toDomain(): AttendanceProject? =
+        ProjectSystem.of(system)?.let { AttendanceProject(system = it, id = id, name = name) }
 }
 
 /**
@@ -72,3 +91,51 @@ internal fun String.toInstantOrNull(): Instant? = runCatching {
 }.getOrElse {
     runCatching { Instant.parse(this) }.getOrNull()
 }
+
+/**
+ * One row of `attendance_reward_progress` (migration 0066).
+ *
+ * `start_time` is the cutoff the SERVER compared against, carried so the
+ * screen can say "due 09:00" without a second round trip and without the
+ * app deciding lateness for itself. Whether the worker was late is
+ * [dayStatus], and that judgement is the server's alone -- 0066 and
+ * WeeklyReward.kt are written to agree, and the app re-deriving it would
+ * be a second, drifting copy of the rule.
+ */
+@Serializable
+data class RewardDayRow(
+    @SerialName("work_date") val workDate: String,
+    val required: Boolean,
+    @SerialName("timein_at") val timeInAt: String? = null,
+    @SerialName("start_time") val startTime: String? = null,
+    @SerialName("day_status") val dayStatus: String? = null
+) {
+    /**
+     * Null when the work date is unreadable. Dropping the row is the
+     * safe reading, the same call [ProjectRow.toDomain] makes: a day the
+     * app cannot place on the calendar cannot be drawn in the right cell
+     * either, and [rewardCells] fills the gap as unrecorded rather than
+     * shifting the rest of the week along by one.
+     */
+    fun toDomain(): RewardDay? = runCatching {
+        RewardDay(
+            date = java.time.LocalDate.parse(workDate),
+            required = required,
+            status = RewardDayStatus.parse(dayStatus)
+        )
+    }.getOrNull()
+}
+
+/**
+ * `attendance_config` (migration 0065), read straight off the table --
+ * workers hold a select policy on their own owner's row.
+ *
+ * The amount is READ, never assumed. ₱500 is the MVP default and it is
+ * configurable per owner, so a constant in the app would be a second
+ * copy of a business value the database owns, silently wrong the first
+ * time anybody changes it.
+ */
+@Serializable
+data class RewardConfigRow(
+    @SerialName("reward_amount") val rewardAmount: Double? = null
+)

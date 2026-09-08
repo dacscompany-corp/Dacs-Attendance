@@ -14,28 +14,32 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Apartment
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.CloudDone
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.NorthEast
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.SouthWest
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -52,13 +56,10 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 import com.dacs.attendance.R
 import com.dacs.attendance.domain.AttendanceProject
 import com.dacs.attendance.domain.AttendanceRecord
@@ -69,42 +70,40 @@ import com.dacs.attendance.domain.isChipSelected
 import com.dacs.attendance.domain.photoOverlayCaptionLines
 import com.dacs.attendance.domain.toggleDescriptionChip
 import com.dacs.attendance.ui.components.AttendanceFailureNotice
-import com.dacs.attendance.ui.components.PrimaryActionButton
+import com.dacs.attendance.ui.components.CardDivider
 import com.dacs.attendance.ui.components.FlowHeader
+import com.dacs.attendance.ui.components.FlowTitle
+import com.dacs.attendance.ui.components.IconTile
+import com.dacs.attendance.ui.components.PrimaryActionButton
+import com.dacs.attendance.ui.components.SecondaryActionButton
+import com.dacs.attendance.ui.components.SectionLabel
+import com.dacs.attendance.ui.components.StatusPill
 import com.dacs.attendance.ui.theme.BorderDefault
 import com.dacs.attendance.ui.theme.Brown
+import com.dacs.attendance.ui.theme.Canvas
 import com.dacs.attendance.ui.theme.Dimens
-import com.dacs.attendance.ui.theme.Field
 import com.dacs.attendance.ui.theme.Green
+import com.dacs.attendance.ui.theme.GreenPressed
+import com.dacs.attendance.ui.theme.GreenTint
+import com.dacs.attendance.ui.theme.Hairline
 import com.dacs.attendance.ui.theme.MonoFamily
 import com.dacs.attendance.ui.theme.Surface
-import com.dacs.attendance.ui.theme.TextPrimary
+import com.dacs.attendance.ui.theme.TextDisabled
 import com.dacs.attendance.ui.theme.TextMuted
 import com.dacs.attendance.ui.theme.TextSecondary
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
-private val ConfirmTime = DateTimeFormatter.ofPattern("h:mm a")
-private val ConfirmDate = DateTimeFormatter.ofPattern("d MMM yyyy")
-
-/**
- * The question each step asks. Kept here rather than inside the steps so
- * the one shared header can render it beside the back arrow and the
- * "STEP n / 4" counter, as the design draws them.
- */
-private fun FlowStep.headings(): Pair<Int, Int> = when (this) {
-    FlowStep.PickProject -> R.string.flow_pick_project to R.string.flow_pick_project_tl
-    FlowStep.TakePhoto -> R.string.flow_take_photo to R.string.flow_take_photo_tl
-    FlowStep.CheckPhoto -> R.string.flow_check_photo to R.string.flow_check_photo_tl
-    FlowStep.Describe -> R.string.flow_describe to R.string.flow_describe_tl
-    FlowStep.Confirmed -> R.string.flow_done_in to R.string.flow_done_in_tl
-}
+private val ConfirmTime = DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH)
+private val ConfirmDate = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH)
 
 /**
- * Screens 04-08, as ONE flow parameterised by direction.
+ * Steps 1-4 and the confirmation, as ONE flow parameterised by direction.
  *
- * The design says Time Out is "the same five, in brown". So colour and
- * copy come from [TimeDirection] and the steps themselves are shared --
- * writing Time Out separately is how the two halves drift apart, and a
- * drift here means a worker's evening does not match their morning.
+ * Time Out is the same four screens in brown, so colour and copy come
+ * from [TimeDirection] and the steps themselves are shared -- writing
+ * Time Out separately is how the two halves drift apart, and a drift here
+ * means a worker's evening does not match their morning.
  */
 @Composable
 fun TimeFlowScreen(
@@ -126,10 +125,14 @@ fun TimeFlowScreen(
         if (state.step == FlowStep.PickProject) onCancelled() else viewModel.onBack()
     }
 
-    // Full-bleed, outside the padded column: the confirmation is a whole
-    // green screen in the design, not a card sitting on a white one.
-    if (state.step == FlowStep.Confirmed) {
-        ConfirmedStep(
+    val back = {
+        if (state.step == FlowStep.PickProject) onCancelled() else viewModel.onBack()
+    }
+
+    when (state.step) {
+        // Full-bleed: the confirmation is a whole accent-coloured screen
+        // in the design, not a card sitting on a white one.
+        FlowStep.Confirmed -> ConfirmedStep(
             record = state.saved,
             direction = direction,
             description = state.description,
@@ -137,39 +140,41 @@ fun TimeFlowScreen(
             onDone = onFinished,
             modifier = modifier.fillMaxSize()
         )
-        return
-    }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            // White, not the dashboard's canvas: the flow is a sequence of
-            // sheets in the design, and the cards on them need to read as
-            // raised off something.
-            .background(Surface)
-            .padding(Dimens.ScreenPadding),
-        verticalArrangement = Arrangement.spacedBy(Dimens.GapMedium)
-    ) {
-        val (english, tagalog) = state.step.headings()
-        FlowHeader(
-            step = state.stepNumber,
-            total = 4,
-            english = stringResource(english),
-            tagalog = stringResource(tagalog),
-            accent = accent,
-            // The same decision the system back button makes, because a
-            // worker who taps one and then the other must not get two
-            // different behaviours out of the same screen.
-            onBack = {
-                if (state.step == FlowStep.PickProject) onCancelled() else viewModel.onBack()
-            }
+        // Near-black, edge to edge, with its own header. The camera is the
+        // only step that is not a white sheet.
+        FlowStep.TakePhoto -> CameraStep(
+            projectName = state.selectedProject?.name,
+            onPhotoTaken = viewModel::onPhotoTaken,
+            onBack = back,
+            modifier = modifier.fillMaxSize()
         )
 
-        when (state.step) {
-            FlowStep.PickProject -> PickProjectStep(
+        FlowStep.PickProject -> FlowSheet(modifier) {
+            FlowHeader(
+                step = 1,
+                total = 4,
+                accent = accent,
+                onBack = back,
+                modeLabel = stringResource(
+                    if (direction == TimeDirection.IN) R.string.mode_time_in
+                    else R.string.mode_time_out
+                ),
+                modeIcon = if (direction == TimeDirection.IN) {
+                    Icons.Filled.SouthWest
+                } else {
+                    Icons.Filled.NorthEast
+                }
+            )
+            FlowTitle(
+                title = stringResource(R.string.flow_pick_project),
+                subtitle = stringResource(R.string.flow_pick_project_sub),
+                modifier = Modifier.padding(top = 13.dp)
+            )
+            PickProjectStep(
                 projects = state.projects,
                 loading = state.loadingProjects,
-                selectedId = state.selectedProjectId,
+                selectedKey = state.selectedProjectKey,
                 accent = accent,
                 onSelect = viewModel::onProjectSelected,
                 onConfirm = viewModel::onProjectConfirmed,
@@ -177,17 +182,18 @@ fun TimeFlowScreen(
                 failure = state.failure,
                 modifier = Modifier.weight(1f)
             )
+        }
 
-            FlowStep.TakePhoto -> CameraCapture(
-                onPhotoTaken = viewModel::onPhotoTaken,
-                modifier = Modifier.weight(1f),
-                // The preview caption is the burned-in one, and it names
-                // the project the worker picked one screen ago.
-                projectName = state.selectedProject?.name,
-                accent = accent
+        FlowStep.CheckPhoto -> FlowSheet(modifier) {
+            FlowHeader(
+                step = 3,
+                total = 4,
+                accent = accent,
+                onBack = back,
+                inlineTitle = stringResource(R.string.flow_check_photo),
+                inlineSubtitle = stringResource(R.string.flow_check_photo_sub)
             )
-
-            FlowStep.CheckPhoto -> CheckPhotoStep(
+            CheckPhotoStep(
                 photoPath = state.photo?.file?.absolutePath,
                 capturedAt = state.photo?.capturedAt,
                 projectName = state.selectedProject?.name,
@@ -196,8 +202,18 @@ fun TimeFlowScreen(
                 onAccept = viewModel::onPhotoAccepted,
                 modifier = Modifier.weight(1f)
             )
+        }
 
-            FlowStep.Describe -> DescribeStep(
+        FlowStep.Describe -> FlowSheet(modifier) {
+            FlowHeader(
+                step = 4,
+                total = 4,
+                accent = accent,
+                onBack = back,
+                inlineTitle = stringResource(R.string.flow_describe),
+                inlineSubtitle = stringResource(R.string.flow_describe_sub)
+            )
+            DescribeStep(
                 description = state.description,
                 direction = direction,
                 accent = accent,
@@ -209,88 +225,123 @@ fun TimeFlowScreen(
                 onSubmit = viewModel::onSubmit,
                 modifier = Modifier.weight(1f)
             )
-
-            FlowStep.Confirmed -> Unit  // handled above, full-bleed
         }
     }
 }
 
-// ── 04 · Select project ─────────────────────────────────────────────
+/**
+ * The white sheet steps 1, 3 and 4 sit on.
+ *
+ * White, not the tab screens' canvas: the flow is a sequence of sheets in
+ * the design, and the cards on them need to read as raised off something.
+ */
+@Composable
+private fun FlowSheet(
+    modifier: Modifier = Modifier,
+    content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Surface)
+            .imePadding()
+            .padding(horizontal = Dimens.ScreenPadding)
+            .padding(top = 6.dp),
+        content = content
+    )
+}
+
+// ── 1 · Which project today? ────────────────────────────────────────
 
 @Composable
 internal fun PickProjectStep(
     projects: List<AttendanceProject>,
     loading: Boolean,
-    selectedId: Long?,
+    selectedKey: String?,
     accent: Color,
-    onSelect: (Long) -> Unit,
+    onSelect: (String) -> Unit,
     onConfirm: () -> Unit,
     onRetry: () -> Unit,
     failure: com.dacs.attendance.domain.AttendanceFailure?,
     modifier: Modifier = Modifier
 ) {
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(Dimens.GapMedium)
-    ) {
-        failure?.let { AttendanceFailureNotice(it, onRetry = onRetry) }
+    Column(modifier = modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.weight(1f).padding(top = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            failure?.let { AttendanceFailureNotice(it, onRetry = onRetry) }
 
-        Text(
-            text = stringResource(R.string.flow_active_projects).uppercase(Locale.getDefault()),
-            fontSize = 13.sp,
-            fontWeight = FontWeight.SemiBold,
-            letterSpacing = 0.1.em,
-            color = TextMuted
-        )
+            when {
+                loading -> Box(Modifier.fillMaxWidth().weight(1f), Alignment.Center) {
+                    CircularProgressIndicator(color = accent)
+                }
 
-        when {
-            loading -> Box(Modifier.fillMaxWidth().weight(1f), Alignment.Center) {
-                CircularProgressIndicator(color = accent)
+                projects.isEmpty() && failure == null -> Text(
+                    // A real state, not an error: the admin has not added
+                    // any projects yet, and no amount of retrying fixes it.
+                    text = stringResource(R.string.flow_no_projects),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = TextMuted,
+                    modifier = Modifier.weight(1f)
+                )
+
+                else -> LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    items(projects, key = { it.key }) { project ->
+                        ProjectRow(
+                            project = project,
+                            selected = project.key == selectedKey,
+                            accent = accent,
+                            onClick = { onSelect(project.key) }
+                        )
+                    }
+                }
             }
 
-            projects.isEmpty() && failure == null -> Text(
-                // A real state, not an error: the admin has not added any
-                // projects yet, and no amount of retrying fixes that.
-                text = stringResource(R.string.flow_no_projects),
-                style = MaterialTheme.typography.bodyMedium,
-                color = TextMuted,
-                modifier = Modifier.weight(1f)
-            )
-
-            else -> LazyColumn(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(Dimens.GapSmall)
+            Row(
+                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                items(projects, key = { it.id }) { project ->
-                    ProjectRow(
-                        project = project,
-                        selected = project.id == selectedId,
-                        accent = accent,
-                        onClick = { onSelect(project.id) }
-                    )
-                }
+                Icon(
+                    imageVector = Icons.Filled.Info,
+                    contentDescription = null,
+                    tint = TextDisabled,
+                    modifier = Modifier.size(17.dp)
+                )
+                Text(
+                    // Shown ALWAYS, not only when the list is empty: a
+                    // worker whose site is missing from four listed
+                    // projects needs to know whose job it is to add it.
+                    text = stringResource(R.string.flow_missing_project),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextMuted
+                )
             }
         }
 
-        Text(
-            // Shown ALWAYS, not only when the list is empty: a worker
-            // whose site is missing from four listed projects needs to
-            // know whose job it is to add it.
-            text = stringResource(R.string.flow_missing_project),
-            style = MaterialTheme.typography.bodySmall,
-            color = TextMuted
-        )
-
-        PrimaryActionButton(
-            english = stringResource(R.string.action_continue),
-            tagalog = stringResource(R.string.action_continue_tl),
-            onClick = onConfirm,
-            container = accent,
-            enabled = selectedId != null
-        )
+        Column(modifier = Modifier.padding(top = 14.dp, bottom = Dimens.BottomPadding)) {
+            PrimaryActionButton(
+                label = stringResource(R.string.action_continue),
+                onClick = onConfirm,
+                container = accent,
+                enabled = selectedKey != null
+            )
+        }
     }
 }
 
+/**
+ * One project.
+ *
+ * The subtitle says only "Active", which is all the app actually knows --
+ * the design mocks a location line ("Barangay Talon · active") and there
+ * is no such column. Inventing one would put a place name on the screen
+ * that no record anywhere agrees with.
+ */
 @Composable
 private fun ProjectRow(
     project: AttendanceProject,
@@ -298,63 +349,44 @@ private fun ProjectRow(
     accent: Color,
     onClick: () -> Unit
 ) {
-    Box(
+    val shape = RoundedCornerShape(Dimens.RadiusRow)
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .defaultMinSize(minHeight = Dimens.ProjectRow)
-            .background(
-                // Tinted from the accent, not a fixed green: a Time Out
-                // is brown all the way through, and a green row inside a
-                // brown flow reads as the wrong screen.
-                color = if (selected) accent.copy(alpha = 0.12f) else Field,
-                shape = RoundedCornerShape(Dimens.RadiusMedium)
-            )
-            .border(
-                width = if (selected) 2.dp else 1.dp,
-                color = if (selected) accent else BorderDefault,
-                shape = RoundedCornerShape(Dimens.RadiusMedium)
-            )
+            .background(if (selected) GreenTint else Surface, shape)
+            // Tinted from the accent, not a fixed green: a Time Out is
+            // brown all the way through, and a green row inside a brown
+            // flow reads as the wrong screen.
+            .border(1.5.dp, if (selected) accent else BorderDefault, shape)
             .clickable(onClick = onClick)
-            .padding(horizontal = 18.dp, vertical = 16.dp),
-        contentAlignment = Alignment.CenterStart
+            .padding(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(13.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(30.dp)
-                    .then(
-                        if (selected) {
-                            Modifier.background(accent, CircleShape)
-                        } else {
-                            Modifier.border(2.dp, BorderDefault, CircleShape)
-                        }
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                if (selected) {
-                    Icon(
-                        imageVector = Icons.Filled.Check,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(19.dp)
-                    )
-                }
-            }
+        IconTile(
+            icon = Icons.Filled.Apartment,
+            tint = if (selected) Color.White else TextMuted,
+            background = if (selected) accent else Canvas
+        )
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = project.name,
-                fontSize = 19.sp,
-                lineHeight = 24.sp,
-                fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Bold,
-                color = if (selected) accent else TextPrimary
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp,
+                lineHeight = 21.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = stringResource(R.string.flow_project_active),
+                style = MaterialTheme.typography.bodySmall,
+                color = TextMuted
             )
         }
     }
 }
 
-// ── 06 · Check photo ────────────────────────────────────────────────
+// ── 3 · Is this photo clear? ────────────────────────────────────────
 
 @Composable
 internal fun CheckPhotoStep(
@@ -366,16 +398,14 @@ internal fun CheckPhotoStep(
     onAccept: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(Dimens.GapMedium)
-    ) {
+    Column(modifier = modifier.fillMaxWidth()) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
-                .clip(RoundedCornerShape(18.dp))
-                .background(Field)
+                .padding(top = 14.dp)
+                .clip(RoundedCornerShape(Dimens.RadiusPhoto))
+                .background(Canvas)
         ) {
             // Coil, not a hand-rolled BitmapFactory decode: the file
             // carries EXIF rotation and half the phones in the field
@@ -389,94 +419,79 @@ internal fun CheckPhotoStep(
 
             // EXACTLY what will be burned into the file: project on top,
             // stamp under it, the same two lines the camera previewed one
-            // screen ago. The design's mock shows only the timestamp here,
-            // and that is the one place this deliberately departs from it
-            // -- "is this photo clear?" should be asked about the picture
-            // as it will be FILED, and the project is half of what the
-            // caption claims. Showing less here than at the shutter also
-            // made the two screens disagree about the same photo.
+            // screen ago. "Is this photo clear?" should be asked about the
+            // picture as it will be FILED, and the project is half of what
+            // the caption claims.
             capturedAt?.let { at ->
                 val (name, stamp) = photoOverlayCaptionLines(projectName.orEmpty(), at)
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .fillMaxWidth()
-                        .background(
-                            Brush.verticalGradient(
-                                listOf(Color.Transparent, Color.Black.copy(alpha = 0.66f))
-                            )
-                        )
-                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    if (name.isNotBlank()) {
-                        Text(
-                            text = name,
-                            fontFamily = MonoFamily,
-                            fontSize = 12.sp,
-                            color = Color.White,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                    Text(
-                        text = stamp,
-                        fontFamily = MonoFamily,
-                        fontSize = 12.sp,
-                        color = Color.White,
-                        maxLines = 1
-                    )
-                }
+                PhotoCaption(
+                    name = name,
+                    stamp = stamp,
+                    modifier = Modifier.align(Alignment.BottomStart)
+                )
             }
         }
 
-        // Side by side, as the design lays them out, with USE THIS PHOTO
-        // the wider of the two. Retake is a real button rather than a
-        // text link: it is half of a genuine either/or, and on this
-        // screen a blurry photo is the commonest reason to be here.
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        Column(
+            modifier = Modifier.padding(top = 16.dp, bottom = Dimens.BottomPadding),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            OutlinedButton(
-                onClick = onRetake,
-                modifier = Modifier
-                    .weight(1f)
-                    .defaultMinSize(minHeight = 70.dp),
-                shape = RoundedCornerShape(15.dp),
-                border = BorderStroke(2.dp, BorderDefault),
-                colors = ButtonDefaults.outlinedButtonColors(containerColor = Surface)
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = stringResource(R.string.action_retake_en),
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = TextSecondary
-                    )
-                    Text(
-                        text = stringResource(R.string.action_retake_tl),
-                        fontSize = 13.sp,
-                        color = TextMuted
-                    )
-                }
-            }
-
+            // Stacked, not side by side: v2 makes YES the full-width
+            // answer and Retake the quieter line under it, because the
+            // question above has a right answer most of the time.
             PrimaryActionButton(
-                english = stringResource(R.string.action_use_photo),
-                tagalog = stringResource(R.string.action_use_photo_tl),
+                label = stringResource(R.string.action_use_photo),
                 onClick = onAccept,
                 container = accent,
-                englishSize = 18.sp,
-                modifier = Modifier
-                    .weight(1.35f)
-                    .defaultMinSize(minHeight = 70.dp)
+                leadingIcon = Icons.Filled.Check
+            )
+            SecondaryActionButton(
+                label = stringResource(R.string.action_retake),
+                onClick = onRetake,
+                icon = Icons.Filled.Refresh
             )
         }
     }
 }
 
-// ── 07 · Description ────────────────────────────────────────────────
+/** The scrim and two lines burned along the bottom of a photo. */
+@Composable
+internal fun PhotoCaption(name: String, stamp: String, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            // A scrim, not a solid bar: the caption has to stay readable
+            // over a bright sky and over a dark wall, and the photo behind
+            // it is the thing the worker is actually checking.
+            .background(
+                Brush.verticalGradient(
+                    listOf(Color.Transparent, Color.Black.copy(alpha = 0.72f))
+                )
+            )
+            .padding(horizontal = 14.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        if (name.isNotBlank()) {
+            Text(
+                text = name,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 13.sp,
+                color = Color.White,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        Text(
+            text = stamp,
+            fontFamily = MonoFamily,
+            fontSize = 12.sp,
+            color = Color.White.copy(alpha = 0.8f),
+            maxLines = 1
+        )
+    }
+}
+
+// ── 4 · What are you working on? ────────────────────────────────────
 
 @Composable
 internal fun DescribeStep(
@@ -492,92 +507,85 @@ internal fun DescribeStep(
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
-      Column(
-        modifier = Modifier
-            .weight(1f)
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(Dimens.GapMedium)
-      ) {
-        // What the worker is about to submit, restated on the last screen
-        // before SUBMIT. Four steps in, "which project did I pick?" is a
-        // real question, and the answer is on the record forever.
-        projectName?.let { CapturedContextRow(it, photoPath, accent) }
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(top = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // What the worker is about to submit, restated on the last
+            // screen before SUBMIT. Four steps in, "which project did I
+            // pick?" is a real question, and the answer is on the record
+            // forever.
+            projectName?.let { CapturedContextRow(it, photoPath, accent) }
 
-        Column(verticalArrangement = Arrangement.spacedBy(Dimens.GapSmall)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            DescriptionChips(
+                description = description,
+                accent = accent,
+                enabled = !submitting,
+                onDescriptionChange = onDescriptionChange
+            )
+
+            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
                 Text(
-                    text = stringResource(R.string.flow_describe_label),
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    // Kept beside the label rather than under the box: a
-                    // worker deciding whether to skip this needs to know
-                    // it is optional BEFORE they start typing.
-                    text = stringResource(R.string.flow_describe_optional),
-                    style = MaterialTheme.typography.bodyLarge,
+                    text = stringResource(R.string.flow_describe_own),
+                    style = MaterialTheme.typography.bodyMedium,
                     color = TextMuted
+                )
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = onDescriptionChange,
+                    enabled = !submitting,
+                    placeholder = {
+                        Text(
+                            text = stringResource(R.string.flow_describe_hint),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = TextDisabled
+                        )
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .defaultMinSize(minHeight = 74.dp),
+                    shape = RoundedCornerShape(Dimens.RadiusButton),
+                    textStyle = MaterialTheme.typography.bodyLarge,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = Canvas,
+                        unfocusedContainerColor = Canvas,
+                        disabledContainerColor = Canvas,
+                        focusedBorderColor = accent,
+                        unfocusedBorderColor = BorderDefault
+                    )
                 )
             }
 
-            OutlinedTextField(
-                value = description,
-                onValueChange = onDescriptionChange,
-                enabled = !submitting,
-                placeholder = { Text(stringResource(R.string.flow_describe_hint), color = TextMuted) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .defaultMinSize(minHeight = 120.dp),
-                shape = RoundedCornerShape(Dimens.RadiusMedium),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = Field,
-                    unfocusedContainerColor = Field,
-                    focusedBorderColor = accent,
-                    unfocusedBorderColor = BorderDefault
-                )
-            )
+            failure?.let { AttendanceFailureNotice(it) }
         }
 
-        DescriptionChips(
-            description = description,
-            accent = accent,
-            enabled = !submitting,
-            onDescriptionChange = onDescriptionChange
-        )
-
-        failure?.let { AttendanceFailureNotice(it) }
-      }
-
-      // Pinned to the foot of the sheet, not floated up under the chips:
-      // the design gives SUBMIT margin-top:auto, and on a screen the
-      // worker scrolls, the action must stay where their thumb is.
-      Spacer(Modifier.height(Dimens.GapMedium))
-
-      PrimaryActionButton(
-          english = stringResource(
-              if (direction == TimeDirection.IN) R.string.action_submit_in
-              else R.string.action_submit_out
-          ),
-          tagalog = stringResource(
-              if (direction == TimeDirection.IN) R.string.action_submit_in_tl
-              else R.string.action_submit_out_tl
-          ),
-          onClick = onSubmit,
-          container = accent,
-          loading = submitting
-      )
+        Column(modifier = Modifier.padding(top = 14.dp, bottom = Dimens.BottomPadding)) {
+            PrimaryActionButton(
+                label = stringResource(
+                    if (direction == TimeDirection.IN) R.string.action_submit_in
+                    else R.string.action_submit_out
+                ),
+                onClick = onSubmit,
+                container = accent,
+                trailingIcon = Icons.AutoMirrored.Filled.ArrowForward,
+                loading = submitting
+            )
+        }
     }
 }
 
-/** Project + "photo taken", so step 4 shows what steps 1-3 produced. */
+/** Project + "Photo taken", so step 4 shows what steps 1-3 produced. */
 @Composable
 private fun CapturedContextRow(projectName: String, photoPath: String?, accent: Color) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Field, RoundedCornerShape(Dimens.RadiusSmall))
-            .padding(10.dp),
+            .background(Canvas, RoundedCornerShape(Dimens.RadiusRow))
+            .padding(12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -586,18 +594,16 @@ private fun CapturedContextRow(projectName: String, photoPath: String?, accent: 
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier
-                .size(52.dp)
-                .background(BorderDefault, RoundedCornerShape(9.dp))
-                .clip(RoundedCornerShape(9.dp))
+                .size(48.dp)
+                .clip(RoundedCornerShape(Dimens.RadiusTile))
+                .background(Hairline)
         )
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
-        ) {
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = projectName,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Bold
+                style = MaterialTheme.typography.labelMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
             Text(
                 text = stringResource(R.string.flow_photo_taken),
@@ -615,11 +621,11 @@ private fun CapturedContextRow(projectName: String, photoPath: String?, accent: 
 }
 
 /**
- * "Or tap a common one".
+ * "TAP ONE".
  *
  * The reason this exists is physical: step 4 is done standing up,
- * one-handed, outdoors, often with gloves on. A chip is one tap where
- * the keyboard is twenty, and the toggling rules live in
+ * one-handed, outdoors, often with gloves on. A chip is one tap where the
+ * keyboard is twenty, and the toggling rules live in
  * [toggleDescriptionChip] where they can be tested.
  */
 @Composable
@@ -632,14 +638,8 @@ private fun DescriptionChips(
     val chips = stringArrayResource(R.array.flow_description_chips)
     if (chips.isEmpty()) return
 
-    Column(verticalArrangement = Arrangement.spacedBy(Dimens.GapSmall)) {
-        Text(
-            text = stringResource(R.string.flow_chips_label).uppercase(Locale.getDefault()),
-            fontSize = 13.sp,
-            fontWeight = FontWeight.SemiBold,
-            letterSpacing = 0.1.em,
-            color = TextMuted
-        )
+    Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+        SectionLabel(stringResource(R.string.flow_chips_label))
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(Dimens.GapSmall),
             verticalArrangement = Arrangement.spacedBy(Dimens.GapSmall)
@@ -665,37 +665,28 @@ private fun DescriptionChip(
     enabled: Boolean,
     onClick: () -> Unit
 ) {
-    val shape = RoundedCornerShape(999.dp)
+    val shape = RoundedCornerShape(Dimens.RadiusPill)
     Box(
         modifier = Modifier
             // 48dp, not the design's 44: this is the smallest target in
             // the app and it is tapped with a work glove on.
             .defaultMinSize(minHeight = 48.dp)
-            .background(
-                // Tinted from the accent rather than a fixed green, so
-                // Time Out stays brown throughout as the design says.
-                color = if (selected) accent.copy(alpha = 0.12f) else Color.Transparent,
-                shape = shape
-            )
-            .border(
-                width = if (selected) 2.dp else 1.dp,
-                color = if (selected) accent else BorderDefault,
-                shape = shape
-            )
+            .background(if (selected) GreenTint else Surface, shape)
+            .border(1.5.dp, if (selected) accent else BorderDefault, shape)
             .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 15.dp, vertical = 11.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = text,
-            style = MaterialTheme.typography.bodyMedium,
-            color = if (selected) accent else TextSecondary,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+            fontWeight = FontWeight.Bold,
+            fontSize = 14.sp,
+            color = if (selected) GreenPressed else TextSecondary
         )
     }
 }
 
-// ── 08 · Confirmation ───────────────────────────────────────────────
+// ── The confirmation ────────────────────────────────────────────────
 
 @Composable
 internal fun ConfirmedStep(
@@ -706,53 +697,50 @@ internal fun ConfirmedStep(
     onDone: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val recordedAt = if (direction == TimeDirection.IN) record?.timeInAt else record?.timeOutAt
-    val project = if (direction == TimeDirection.IN) {
-        record?.timeInProjectName
-    } else {
+    val out = direction == TimeDirection.OUT
+    val recordedAt = if (out) record?.timeOutAt else record?.timeInAt
+    val project = if (out) {
         record?.timeOutProjectName ?: record?.timeInProjectName
+    } else {
+        record?.timeInProjectName
     }
+    val none = stringResource(R.string.value_none)
 
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(accent)
-            .padding(horizontal = 26.dp, vertical = 26.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .padding(horizontal = Dimens.ScreenPadding)
+            .padding(bottom = Dimens.BottomPadding)
     ) {
         Column(
             modifier = Modifier
                 .weight(1f)
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(22.dp, Alignment.CenterVertically)
+            verticalArrangement = Arrangement.spacedBy(18.dp, Alignment.CenterVertically)
         ) {
             Box(
                 modifier = Modifier
-                    .size(126.dp)
-                    .background(Color.White.copy(alpha = 0.15f), CircleShape),
+                    .size(96.dp)
+                    .background(
+                        Color.White.copy(alpha = 0.18f),
+                        RoundedCornerShape(32.dp)
+                    ),
                 contentAlignment = Alignment.Center
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(96.dp)
-                        .background(Color.White, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Check,
-                        contentDescription = null,
-                        tint = accent,
-                        modifier = Modifier.size(56.dp)
-                    )
-                }
+                Icon(
+                    imageVector = Icons.Filled.Check,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(52.dp)
+                )
             }
 
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = stringResource(
-                        if (direction == TimeDirection.IN) R.string.flow_done_in
-                        else R.string.flow_done_out
+                        if (out) R.string.done_title_out else R.string.done_title_in
                     ),
                     style = MaterialTheme.typography.displaySmall,
                     color = Color.White,
@@ -760,14 +748,20 @@ internal fun ConfirmedStep(
                 )
                 Text(
                     text = stringResource(
-                        if (direction == TimeDirection.IN) R.string.flow_done_in_tl
-                        else R.string.flow_done_out_tl
+                        if (out) R.string.done_sub_out else R.string.done_sub_in
                     ),
-                    fontSize = 19.sp,
-                    color = Color.White.copy(alpha = 0.82f),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Color.White.copy(alpha = 0.85f),
                     textAlign = TextAlign.Center
                 )
             }
+
+            StatusPill(
+                text = stringResource(R.string.done_saved),
+                foreground = Color.White,
+                background = Color.White.copy(alpha = 0.18f),
+                icon = Icons.Filled.CloudDone
+            )
 
             // The receipt. A worker walks away from here and cannot open
             // the record again until it reaches the server, so every fact
@@ -775,61 +769,71 @@ internal fun ConfirmedStep(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color.White.copy(alpha = 0.12f), RoundedCornerShape(18.dp))
-                    .padding(22.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                    .background(Surface, RoundedCornerShape(Dimens.RadiusPanel))
+                    .padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                ReceiptRow(stringResource(R.string.confirm_project), project ?: "—")
-                ReceiptDivider()
-                ReceiptRow(
-                    label = stringResource(
-                        if (direction == TimeDirection.IN) R.string.confirm_time_in
-                        else R.string.confirm_time_out
-                    ),
-                    value = recordedAt?.atZone(AttendanceZone)?.format(ConfirmTime) ?: "—",
-                    mono = true
-                )
-                ReceiptDivider()
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Bottom
+                ) {
+                    Text(
+                        text = stringResource(
+                            if (out) R.string.confirm_time_out else R.string.confirm_time_in
+                        ),
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp,
+                        color = TextMuted
+                    )
+                    Text(
+                        text = recordedAt?.atZone(AttendanceZone)?.format(ConfirmTime) ?: none,
+                        fontFamily = MonoFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 26.sp,
+                        color = accent,
+                        maxLines = 1
+                    )
+                }
+                CardDivider()
                 ReceiptRow(
                     label = stringResource(R.string.confirm_date),
-                    value = recordedAt?.atZone(AttendanceZone)?.format(ConfirmDate) ?: "—"
+                    value = recordedAt?.atZone(AttendanceZone)?.format(ConfirmDate) ?: none
                 )
-                if (direction == TimeDirection.OUT) {
-                    ReceiptDivider()
+                ReceiptRow(stringResource(R.string.confirm_project), project ?: none)
+                ReceiptRow(
+                    label = stringResource(R.string.confirm_note),
+                    value = description.trim().ifEmpty { none }
+                )
+                if (out) {
                     ReceiptRow(
                         label = stringResource(R.string.confirm_total),
                         value = TotalHours.format(record?.totalMinutes),
                         mono = true
                     )
                 }
-                description.trim().takeIf { it.isNotEmpty() }?.let { note ->
-                    ReceiptDivider()
-                    ReceiptRow(stringResource(R.string.confirm_note), note)
-                }
             }
 
             Text(
                 text = stringResource(
-                    if (direction == TimeDirection.IN) R.string.confirm_next_in
-                    else R.string.confirm_next_out
+                    if (out) R.string.confirm_next_out else R.string.confirm_next_in
                 ),
-                fontSize = 16.sp,
-                lineHeight = 24.sp,
-                color = Color.White.copy(alpha = 0.8f),
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.White.copy(alpha = 0.85f),
                 textAlign = TextAlign.Center
             )
         }
 
         Spacer(Modifier.height(Dimens.GapMedium))
 
-        // White on green, not a translucent panel: this is the only way
+        // White on accent, not a translucent panel: this is the only way
         // off the screen and it should look like it.
         PrimaryActionButton(
-            english = stringResource(R.string.action_back_home),
-            tagalog = stringResource(R.string.action_back_home_tl),
+            label = stringResource(R.string.action_back_home),
             onClick = onDone,
-            container = Color.White,
-            content = accent
+            container = Surface,
+            content = accent,
+            leadingIcon = Icons.Filled.Home
         )
     }
 }
@@ -839,34 +843,22 @@ internal fun ConfirmedStep(
 private fun ReceiptRow(label: String, value: String, mono: Boolean = false) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.Bottom
     ) {
         Text(
             text = label,
-            fontSize = 16.sp,
-            color = Color.White.copy(alpha = 0.75f)
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 14.sp,
+            color = TextMuted
         )
         Text(
             text = value,
             modifier = Modifier.weight(1f),
             fontFamily = if (mono) MonoFamily else null,
-            fontSize = if (mono) 24.sp else 17.sp,
-            lineHeight = if (mono) 28.sp else 22.sp,
-            fontWeight = if (mono) FontWeight.Medium else FontWeight.Bold,
-            color = Color.White,
+            fontWeight = FontWeight.Bold,
+            fontSize = 14.sp,
             textAlign = TextAlign.End
         )
     }
 }
-
-@Composable
-private fun ReceiptDivider() {
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .height(1.dp)
-            .background(Color.White.copy(alpha = 0.18f))
-    )
-}
-

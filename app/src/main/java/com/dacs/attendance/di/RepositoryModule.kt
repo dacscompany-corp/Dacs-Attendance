@@ -3,9 +3,11 @@ package com.dacs.attendance.di
 import com.dacs.attendance.data.repo.AttendanceRepository
 import com.dacs.attendance.data.repo.AuthRepository
 import com.dacs.attendance.data.repo.ProjectRepository
+import com.dacs.attendance.data.repo.RewardRepository
 import com.dacs.attendance.data.repo.OfflineAttendanceRepository
 import com.dacs.attendance.data.repo.OfflineProjectRepository
 import com.dacs.attendance.data.repo.SupabaseAuthRepository
+import com.dacs.attendance.data.repo.SupabaseRewardRepository
 import com.dacs.attendance.data.repo.SupabaseTermsRepository
 import com.dacs.attendance.data.repo.TermsRepository
 import dagger.Binds
@@ -37,4 +39,11 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindProjectRepository(impl: OfflineProjectRepository): ProjectRepository
+
+    // No offline wrapper, deliberately -- see SupabaseRewardRepository.
+    // A locally computed reward could disagree with the server's frozen
+    // one, and that disagreement is worse than an absent strip.
+    @Binds
+    @Singleton
+    abstract fun bindRewardRepository(impl: SupabaseRewardRepository): RewardRepository
 }
