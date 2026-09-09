@@ -1,6 +1,7 @@
 package com.dacs.attendance.data.repo
 
 import com.dacs.attendance.data.remote.ProfileRow
+import com.dacs.attendance.data.local.WorkerCache
 import com.dacs.attendance.data.remote.SignInApi
 import com.dacs.attendance.data.remote.SignInOutcome
 import com.dacs.attendance.domain.LoginFailure
@@ -19,7 +20,8 @@ private const val AUDIENCE = "authenticated"
 @Singleton
 class SupabaseAuthRepository @Inject constructor(
     private val client: SupabaseClient,
-    private val signInApi: SignInApi
+    private val signInApi: SignInApi,
+    private val workerCache: WorkerCache
 ) : AuthRepository {
 
     /**
@@ -57,12 +59,26 @@ class SupabaseAuthRepository @Inject constructor(
                             user = UserInfo(id = worker.id, aud = AUDIENCE)
                         )
                     )
+
+                    // CACHED HERE, not only in currentWorker(). Sign-in is
+                    // the one moment a worker is guaranteed to have signal,
+                    // and it is also the only path that never calls
+                    // currentWorker() -- so without this the cache stays
+                    // empty until the second launch, and the FIRST offline
+                    // launch after signing in still lands on the login
+                    // screen with nothing to fall back to. Which is
+                    // precisely the morning this whole mechanism is for.
+                    workerCache.remember(worker)
                     worker
                 }
             }
         }
 
     override suspend fun signOut() {
+        // Cleared BEFORE the session goes, while the id is still readable.
+        // Site phones are shared, and a cached profile outliving its
+        // session would greet the next worker with the last one's name.
+        client.auth.currentUserOrNull()?.id?.let(workerCache::forget)
         runCatchingExceptCancellation { client.auth.signOut() }
     }
 
@@ -79,16 +95,70 @@ class SupabaseAuthRepository @Inject constructor(
             Unit
         }
 
-    override suspend fun currentWorker(): WorkerProfile? =
-        runCatchingExceptCancellation {
-            // The Auth plugin restores the stored session asynchronously.
-            // Asking before it settles reports "signed out" for a worker
-            // who is not -- and sends them back to a login screen every
-            // morning, which is the one thing session persistence exists
-            // to prevent.
-            client.auth.awaitInitialization()
-            loadWorkerProfile()
-        }.getOrNull()
+    /**
+     * ── "NO SESSION" AND "NO SIGNAL" ARE DIFFERENT ANSWERS.
+     *
+     *    This used to wrap the whole thing in runCatching and return null
+     *    on any failure, which collapsed the two into one. Offline, the
+     *    profile read threw, null came back, and the app concluded the
+     *    worker was signed out -- dropping them on a login screen they
+     *    could not complete without signal either.
+     *
+     *    That defeated the entire offline layer: the queue, the record
+     *    mirror and the cached project picker all sit behind this check,
+     *    and every one of them exists for the morning it locked people
+     *    out of.
+     *
+     *    So the session is read first, on its own. Only a genuinely
+     *    absent session means signed out; a session that cannot be
+     *    *described* falls back to the last profile this device saw.
+     */
+    override suspend fun currentWorker(): WorkerProfile? {
+        // The Auth plugin restores the stored session asynchronously.
+        // Asking before it settles reports "signed out" for a worker who
+        // is not -- the one thing session persistence exists to prevent.
+        client.auth.awaitInitialization()
+
+        // ── WHY THIS DOES NOT TRUST currentUserOrNull() ALONE.
+        //
+        //    Verified on a real device: reopening the app WITH signal
+        //    restores the session and lands on the dashboard, and
+        //    reopening WITHOUT signal lands on the login screen. So the
+        //    session persists correctly -- the auth client simply reports
+        //    nobody when it cannot reach the network to validate or
+        //    refresh what it loaded.
+        //
+        //    That is a fact about the network. Reading it as "signed out"
+        //    is what locked workers out of the entire offline layer.
+        //
+        //    So: the client's answer wins when it has one, and our own
+        //    record of the sign-in we witnessed stands in when it does
+        //    not. A worker who actually signed out has neither.
+        // Measured on a real device, offline: the session IS restored and
+        // this returns the worker. The fallback below is defence for the
+        // case where it does not -- it was not what fixed the offline
+        // lockout, and assuming it was cost three wrong attempts.
+        val userId = client.auth.currentUserOrNull()?.id
+            ?: workerCache.lastSignedInId
+            ?: return null
+
+        return runCatchingExceptCancellation { loadWorkerProfile(userId) }.fold(
+            onSuccess = { profile ->
+                // The server answered. Its answer wins, and is kept for
+                // the next launch that has no signal.
+                profile?.also { workerCache.remember(it) }
+            },
+            onFailure = {
+                // THE ACTUAL OFFLINE BUG LIVED HERE. This read throws
+                // HttpRequestException with no signal, the original code
+                // swallowed it to null, and RootViewModel read null as
+                // "signed out" -- locking a worker out of the queue, the
+                // mirrors and the cached picker, all of which exist for
+                // precisely that morning.
+                workerCache.recall(userId)
+            }
+        )
+    }
 
     /**
      * Used on launch, when a session has been restored from encrypted
@@ -96,8 +166,7 @@ class SupabaseAuthRepository @Inject constructor(
      * no service_role involved -- so an account deactivated since the last
      * launch comes back as 'inactive' rather than silently staying in.
      */
-    private suspend fun loadWorkerProfile(): WorkerProfile? {
-        val userId = client.auth.currentUserOrNull()?.id ?: return null
+    private suspend fun loadWorkerProfile(userId: String): WorkerProfile? {
         return client.postgrest
             .from("profiles")
             .select(Columns.raw(ProfileRow.COLUMNS)) {

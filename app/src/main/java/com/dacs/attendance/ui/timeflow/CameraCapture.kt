@@ -1,6 +1,9 @@
 package com.dacs.attendance.ui.timeflow
 
 import android.Manifest
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import android.content.Context
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -33,7 +36,9 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -59,6 +64,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.dacs.attendance.R
@@ -93,6 +100,15 @@ fun CameraStep(
     projectName: String?,
     onPhotoTaken: (File, Instant) -> Unit,
     onBack: () -> Unit,
+    /**
+     * Leave the flow entirely, back to Home.
+     *
+     * Distinct from [onBack], which steps back to the picker. A worker
+     * who has decided NOT to grant the camera has nothing to go back
+     * FOR -- every earlier step leads here again. Without this the
+     * screen is a dead end held open by a shutter that cannot fire.
+     */
+    onGiveUp: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -122,6 +138,24 @@ fun CameraStep(
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { results -> granted = results[Manifest.permission.CAMERA] ?: granted }
+
+    // ── RE-CHECK WHEN THE APP COMES BACK.
+    //
+    // The launcher below asks ONCE. After a permanent denial Android
+    // never shows the prompt again, so the only route is Settings -- and
+    // returning from Settings does not recompose this screen on its own.
+    // Without this the worker grants the permission, comes back, and the
+    // camera is still dead with no way to shift it. That is a trap, and
+    // it is exactly what the message below used to promise it was not.
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                granted = context.hasCameraPermission()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     LaunchedEffect(Unit) {
         val wanted = buildList {
@@ -210,15 +244,51 @@ fun CameraStep(
                         .padding(14.dp)
                 )
             } else {
-                // Not a dead end: the launcher above already asked, and
-                // this explains why the screen is empty if they refused.
-                Text(
-                    text = stringResource(R.string.camera_permission_needed),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = Color.White.copy(alpha = 0.75f),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(Dimens.SheetPadding)
-                )
+                // The message alone was advice with nothing to act on.
+                // After a permanent denial the app cannot re-prompt, so
+                // the button is the ONLY way forward -- and the observer
+                // above is what makes coming back from it work.
+                Column(
+                    modifier = Modifier.padding(Dimens.SheetPadding),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.camera_permission_needed),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Color.White.copy(alpha = 0.75f),
+                        textAlign = TextAlign.Center
+                    )
+                    TextButton(
+                        onClick = {
+                            context.startActivity(
+                                Intent(
+                                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                    Uri.fromParts("package", context.packageName, null)
+                                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            )
+                        }
+                    ) {
+                        Text(
+                            text = stringResource(R.string.action_open_settings),
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+
+                    // The other honest answer. Returning to Home is NOT
+                    // automatic on a denial: doing that would whisk the
+                    // worker away before they had a chance to read the
+                    // Open Settings route, which is the one thing that
+                    // actually fixes this. Offer both, let them choose.
+                    TextButton(onClick = onGiveUp) {
+                        Text(
+                            text = stringResource(R.string.action_not_now),
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.White.copy(alpha = 0.75f)
+                        )
+                    }
+                }
             }
         }
 

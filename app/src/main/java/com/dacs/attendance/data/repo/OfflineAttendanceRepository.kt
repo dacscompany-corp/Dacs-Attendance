@@ -5,6 +5,7 @@ import com.dacs.attendance.data.local.Connectivity
 import com.dacs.attendance.data.local.CachedRecordEntity
 import com.dacs.attendance.data.local.PendingSubmissionEntity
 import com.dacs.attendance.data.local.PhotoStore
+import com.dacs.attendance.data.local.WorkerCache
 import com.dacs.attendance.data.local.AttendanceDatabase
 import com.dacs.attendance.domain.AttendanceProject
 import com.dacs.attendance.domain.AttendanceRecord
@@ -39,17 +40,32 @@ class OfflineAttendanceRepository @Inject constructor(
     private val scheduler: SubmissionScheduler,
     private val remote: SupabaseAttendanceRepository,
     private val connectivity: Connectivity,
-    private val client: SupabaseClient
+    private val client: SupabaseClient,
+    private val workerCache: WorkerCache
 ) : AttendanceRepository {
 
     /**
      * The signed-in worker, and the scope for EVERY local read and write.
      *
-     * Empty when there is no session. That is deliberately useless as a
-     * key: with no session we must not read or write anyone's mirror,
-     * because we cannot know whose it would be.
+     * Empty only when nobody has signed in on this device. That is
+     * deliberately useless as a key: with no worker we must not read or
+     * write anyone's mirror, because we cannot know whose it would be.
+     *
+     * Uses the same fallback the auth repository uses, and for the same
+     * reason: offline, `currentUserOrNull()` is null even though a
+     * session is stored.
+     *
+     * This one matters more than it looks. Every queued row is stamped
+     * with this id, and [nextToSend] refuses to send a row whose worker
+     * it cannot identify -- phones are shared on site, and uploading one
+     * worker's attendance under another's name is unfixable afterwards.
+     * An empty id here would queue records that could never be sent, and
+     * the worker would be told their day was saved.
      */
-    private fun currentWorkerId(): String = client.auth.currentUserOrNull()?.id.orEmpty()
+    private fun currentWorkerId(): String =
+        client.auth.currentUserOrNull()?.id
+            ?: workerCache.lastSignedInId
+            ?: ""
 
     /**
      * Returns as soon as the submission is durably on disk. The record

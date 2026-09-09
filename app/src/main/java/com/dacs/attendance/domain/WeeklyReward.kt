@@ -145,7 +145,16 @@ fun rewardSummary(days: List<RewardDay>, today: LocalDate): RewardSummary {
             // contradiction; count it with the ones we cannot read
             // rather than silently treating it as a pass.
             RewardDayStatus.NotRequired -> unknown++
-            RewardDayStatus.Missing -> if (day.date.isAfter(today)) pending++ else missing++
+            // TODAY counts as pending, not missed. The server reports a
+            // day with no Time In as `missing` whether or not it has
+            // finished, and taking that at face value told a worker
+            // opening the app at 07:00 -- two hours before the cutoff --
+            // that they were already disqualified for a day they had not
+            // yet had the chance to record.
+            //
+            // Only a day strictly in the PAST can be a miss. A day still
+            // running is a day still winnable, even late in it.
+            RewardDayStatus.Missing -> if (day.date.isBefore(today)) missing++ else pending++
         }
     }
 
@@ -191,7 +200,9 @@ fun rewardCells(
             day != null && !day.required -> RewardCellState.NotRequired
             day?.status == RewardDayStatus.OnTime -> RewardCellState.OnTime
             day?.status == RewardDayStatus.Late -> RewardCellState.Late
-            date.isAfter(today) -> RewardCellState.Pending
+            // Same rule as the summary: today is still running, so an
+            // empty cell for it is pending rather than a red miss.
+            !date.isBefore(today) -> RewardCellState.Pending
             else -> RewardCellState.Missing
         }
         RewardCell(

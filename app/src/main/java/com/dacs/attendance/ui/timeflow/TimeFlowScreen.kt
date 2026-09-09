@@ -109,7 +109,8 @@ private val ConfirmDate = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLI
 fun TimeFlowScreen(
     direction: TimeDirection,
     onFinished: () -> Unit,
-    onCancelled: () -> Unit,
+    /** Left the flow. The reason is null unless something explains it. */
+    onCancelled: (reason: FlowExit?) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: TimeFlowViewModel = hiltViewModel()
 ) {
@@ -122,11 +123,11 @@ fun TimeFlowScreen(
     LaunchedEffect(direction) { viewModel.start(direction) }
 
     BackHandler(enabled = state.step != FlowStep.Confirmed) {
-        if (state.step == FlowStep.PickProject) onCancelled() else viewModel.onBack()
+        if (state.step == FlowStep.PickProject) onCancelled(null) else viewModel.onBack()
     }
 
     val back = {
-        if (state.step == FlowStep.PickProject) onCancelled() else viewModel.onBack()
+        if (state.step == FlowStep.PickProject) onCancelled(null) else viewModel.onBack()
     }
 
     when (state.step) {
@@ -147,6 +148,7 @@ fun TimeFlowScreen(
             projectName = state.selectedProject?.name,
             onPhotoTaken = viewModel::onPhotoTaken,
             onBack = back,
+            onGiveUp = { onCancelled(FlowExit.CameraPermission) },
             modifier = modifier.fillMaxSize()
         )
 
@@ -862,3 +864,6 @@ private fun ReceiptRow(label: String, value: String, mono: Boolean = false) {
         )
     }
 }
+
+/** Why a flow ended without recording anything, when there is a why. */
+enum class FlowExit { CameraPermission }

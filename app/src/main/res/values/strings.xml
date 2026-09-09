@@ -255,4 +255,13 @@
          because it sits inside a failure notice, not on a screen. -->
     <string name="action_open_settings">Open Settings · Buksan ang Settings</string>
 
+
+    <!-- Leaving the flow when a permission is refused. Bilingual: this is
+         a failure path, and the rule is that screens are English-only but
+         the moments something goes wrong are not. -->
+    <string name="action_not_now">Not now · Sa ibang pagkakataon</string>
+    <string name="home_flow_cancelled_camera">Time In was not recorded. The camera permission is off, and the photo is the proof of attendance.</string>
+    <string name="home_flow_cancelled_camera_tl">Hindi naitala ang Time In. Naka-off ang camera permission, at ang litrato ang patunay ng pasok.</string>
+    <string name="action_dismiss">Dismiss · Isara</string>
+
 </resources>

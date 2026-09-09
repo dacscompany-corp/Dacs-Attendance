@@ -28,7 +28,7 @@ data class TermsClause(
 object AttendanceTerms {
 
     /** Bump on ANY edit to the clauses below. */
-    const val VERSION = "2026-08-v2"
+    const val VERSION = "2026-09-v3"
 
     const val TITLE = "DAC's Attendance -- Terms & Conditions"
 
@@ -55,6 +55,33 @@ object AttendanceTerms {
                 "ng pagpasok, at itatago ito kasama ng iyong record."
         ),
         TermsClause(
+            heading = "Location check.",
+            // Four sentences where the others use two, and each one is
+            // load-bearing:
+            //   what is taken, and when
+            //   that it is NOT continuous tracking -- the single most
+            //     likely fear, and the spec is explicit that the system
+            //     must not be a worker-monitoring tool
+            //   that a poor signal does NOT cost them the day, because
+            //     otherwise this clause reads far harsher than the
+            //     software actually behaves
+            //   what genuinely does refuse
+            english = "Your location is checked when you Time In and Time Out, to " +
+                "confirm you are at the project you selected. It is taken only at " +
+                "those two moments; the app does not follow you at any other time. " +
+                "If your phone cannot get a clear location, your attendance is still " +
+                "recorded and marked for the Admin to check. If it shows you are away " +
+                "from the site, or location is turned off, the attendance cannot be " +
+                "recorded.",
+            tagalog = "Titingnan ang lokasyon mo tuwing Time In at Time Out, para " +
+                "makumpirma na nasa project ka na iyong pinili. Sa dalawang sandaling " +
+                "iyon lang ito kinukuha; hindi ka sinusundan ng app sa ibang oras. " +
+                "Kung hindi makakuha ng malinaw na lokasyon ang telepono mo, " +
+                "maitatala pa rin ang pasok mo at mamarkahan para tingnan ng Admin. " +
+                "Kung malayo ka sa site ayon dito, o naka-off ang lokasyon, hindi " +
+                "maitatala ang pasok."
+        ),
+        TermsClause(
             heading = "Honest use.",
             english = "Your account is yours alone. Do not let another person time in " +
                 "or out for you.",
@@ -74,6 +101,41 @@ object AttendanceTerms {
             tagalog = "Ang iyong mga record, litrato at lokasyon ay maaaring makita ng " +
                 "Admin at ng May-ari para tingnan ang pasok at ang trabaho sa site. " +
                 "Hindi ito ang batayan ng sahod mo."
+        ),
+        TermsClause(
+            heading = "Weekly attendance reward.",
+            // ── NO PESO FIGURE, DELIBERATELY.
+            //    The amount lives in attendance_config and the Owner can
+            //    change it. This text is hashed into agreement_events as
+            //    evidence, so naming a number here would mean either
+            //    binding text that goes quietly wrong the day it changes,
+            //    or forcing every worker to re-accept the Terms over a
+            //    raise. The app shows the current figure; the Terms say
+            //    how it is earned.
+            //
+            // ── NO CUTOFF TIME EITHER, for the same reason: the start
+            //    time is per project since 0065.
+            //
+            // ── "may give" rather than "gives". Qualification is computed
+            //    automatically, but payment happens outside this system
+            //    entirely (decision 14) -- nothing here creates an
+            //    accounting entry. Promising payment in binding text
+            //    would claim more than the software does.
+            english = "The Owner may give a weekly attendance reward for a complete, " +
+                "on-time week. It is based on your Time In on each required day from " +
+                "Monday to Friday, compared against the start time set for your " +
+                "project: one late day, or one required day with no Time In, means no " +
+                "reward for that week, and there is no partial amount. Days the site " +
+                "is closed are not counted against you. This reward is separate from " +
+                "your pay and is not computed from your hours.",
+            tagalog = "Maaaring magbigay ang May-ari ng lingguhang reward para sa " +
+                "kumpleto at hindi nahuling pasok. Nakabatay ito sa Time In mo sa " +
+                "bawat araw na kailangan mula Lunes hanggang Biyernes, ayon sa oras ng " +
+                "simula na nakatakda para sa project mo: isang araw na late, o isang " +
+                "araw na walang Time In, ay walang reward para sa linggong iyon, at " +
+                "walang bahagyang halaga. Hindi bibilangin laban sa iyo ang mga araw " +
+                "na sarado ang site. Hiwalay ito sa sahod mo at hindi ito kinukuwenta " +
+                "mula sa oras mo."
         )
     )
 

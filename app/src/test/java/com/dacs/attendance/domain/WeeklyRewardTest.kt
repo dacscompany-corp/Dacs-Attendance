@@ -190,7 +190,11 @@ class WeeklyRewardTest {
         assertEquals(listOf("Mo", "Tu", "We", "Th", "Fr"), cells.map { it.label })
         assertEquals(RewardCellState.OnTime, cells[0].state)
         assertEquals(RewardCellState.Late, cells[1].state)
-        assertEquals(RewardCellState.Missing, cells[2].state)   // today, unrecorded
+        // Today, unrecorded -- PENDING, not missed. This assertion used to
+        // say Missing, which is the bug it was written before: a worker
+        // opening the app before the cutoff was shown a red day and a
+        // disqualified week for a day they could still record.
+        assertEquals(RewardCellState.Pending, cells[2].state)
         assertEquals(RewardCellState.Pending, cells[3].state)   // not yet
         assertEquals(RewardCellState.Pending, cells[4].state)
     }
@@ -228,5 +232,39 @@ class WeeklyRewardTest {
 
         assertEquals(5, summary.completedDays)
         assertEquals(RewardStatus.Disqualified, summary.status)
+    }
+
+    @Test
+    fun `today with no Time In yet is pending, not a miss`() {
+        // A worker opening the app at 07:00, before the cutoff. Reporting
+        // this as missed told them they were disqualified for a day they
+        // still had two hours to record -- and there is no way for them to
+        // tell that claim was premature rather than wrong.
+        val summary = rewardSummary(
+            fullWeek(
+                RewardDayStatus.OnTime, RewardDayStatus.Missing, RewardDayStatus.Missing,
+                RewardDayStatus.Missing, RewardDayStatus.Missing
+            ),
+            today = tuesday
+        )
+
+        assertEquals(0, summary.missingDays)
+        assertEquals(4, summary.pendingDays)
+        assertEquals(RewardStatus.InProgress, summary.status)
+    }
+
+    @Test
+    fun `today draws as pending, and yesterday as missed`() {
+        val cells = rewardCells(
+            weekStart = monday,
+            days = listOf(
+                day(monday, RewardDayStatus.Missing),
+                day(tuesday, RewardDayStatus.Missing)
+            ),
+            today = tuesday
+        )
+
+        assertEquals(RewardCellState.Missing, cells[0].state)
+        assertEquals(RewardCellState.Pending, cells[1].state)
     }
 }
