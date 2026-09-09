@@ -200,20 +200,39 @@ fun DashboardContent(
 
             // Nothing recorded yet: the invitation, and a card that says
             // plainly that nothing has happened.
-            record == null -> if (state.failure == null) {
-                HeroAction(
-                    title = stringResource(R.string.action_time_in),
-                    subtitle = stringResource(R.string.action_time_in_hint),
-                    icon = Icons.Filled.SouthWest,
-                    gradient = listOf(Green, GreenDeep),
-                    footnote = stringResource(R.string.home_flow_summary),
-                    onClick = { onStartFlow(TimeDirection.IN) }
-                )
-                NoticeCard(
-                    icon = Icons.Filled.Schedule,
-                    title = stringResource(R.string.home_not_timed_in),
-                    subtitle = stringResource(R.string.home_not_timed_in_sub)
-                )
+            //
+            // THE TWO ARE GATED SEPARATELY, and that is the point.
+            //
+            // The BUTTON follows [DashboardUiState.nextAction], which
+            // still offers Time In when the only problem was no signal --
+            // a worker at 07:45 on a site with no bars has to be able to
+            // start their day. This used to be gated on `failure == null`
+            // too, which hid the button offline and left them on a
+            // dashboard they could do nothing with.
+            //
+            // The CARD saying "you have not timed in yet" is a claim
+            // about the day, and offline we have not read the day. So it
+            // waits until we actually know, rather than asserting an
+            // absence we cannot see. The failure notice above already
+            // says why.
+            record == null -> {
+                if (state.nextAction != null) {
+                    HeroAction(
+                        title = stringResource(R.string.action_time_in),
+                        subtitle = stringResource(R.string.action_time_in_hint),
+                        icon = Icons.Filled.SouthWest,
+                        gradient = listOf(Green, GreenDeep),
+                        footnote = stringResource(R.string.home_flow_summary),
+                        onClick = { onStartFlow(TimeDirection.IN) }
+                    )
+                }
+                if (state.failure == null) {
+                    NoticeCard(
+                        icon = Icons.Filled.Schedule,
+                        title = stringResource(R.string.home_not_timed_in),
+                        subtitle = stringResource(R.string.home_not_timed_in_sub)
+                    )
+                }
             }
 
             else -> {

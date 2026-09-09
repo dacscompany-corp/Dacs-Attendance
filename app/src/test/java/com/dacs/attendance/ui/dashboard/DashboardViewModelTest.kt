@@ -76,8 +76,16 @@ class DashboardViewModelTest {
         totalMinutes = totalMinutes
     )
 
+    /** Records that Home asked the queue to drain. */
+    private class RecordingScheduler : com.dacs.attendance.work.UploadScheduler {
+        var kicks = 0
+            private set
+
+        override fun sendNow() { kicks++ }
+    }
+
     private fun viewModel(result: Result<AttendanceRecord?>) =
-        DashboardViewModel(FakeAttendance(result), RecordingProjects(), FakeRewards())
+        DashboardViewModel(FakeAttendance(result), RecordingProjects(), FakeRewards(), RecordingScheduler())
 
     @Test
     fun `no record yet means the worker may time in`() = runTest {
@@ -189,13 +197,15 @@ class DashboardViewModelTest {
 
     @Test
     fun `a failed load is reported rather than shown as an empty day`() = runTest {
-        // "No record yet" and "we could not check" look identical, and a
-        // worker acting on the wrong one times in twice.
+        // "No record yet" and "we could not check" look identical, so the
+        // screen has to SAY which. It no longer withholds the action as
+        // well -- that cost more than it protected; see the offline test
+        // below and DashboardUiState.nextAction.
         val vm = viewModel(Result.failure(IOException("no signal")))
         advanceUntilIdle()
 
         assertEquals(AttendanceFailure.NoConnection, vm.uiState.value.failure)
-        assertNull(vm.uiState.value.nextAction)
+        assertNull("an unread day is never shown as a recorded one", vm.uiState.value.record)
     }
 
     @Test
@@ -207,7 +217,7 @@ class DashboardViewModelTest {
         // prevent. The dashboard is the one screen every worker sees, so
         // it is where the cache gets warmed.
         val projects = RecordingProjects()
-        val vm = DashboardViewModel(FakeAttendance(Result.success(null)), projects, FakeRewards())
+        val vm = DashboardViewModel(FakeAttendance(Result.success(null)), projects, FakeRewards(), RecordingScheduler())
         advanceUntilIdle()
 
         assertEquals(1, projects.calls)
@@ -224,7 +234,7 @@ class DashboardViewModelTest {
     @Test
     fun `refresh re-reads the record after a submission`() = runTest {
         val auth = FakeAttendance(Result.success(null))
-        val vm = DashboardViewModel(auth, RecordingProjects(), FakeRewards())
+        val vm = DashboardViewModel(auth, RecordingProjects(), FakeRewards(), RecordingScheduler())
         advanceUntilIdle()
 
         vm.refresh()
@@ -242,7 +252,8 @@ class DashboardViewModelTest {
         val vm = DashboardViewModel(
             FakeAttendance(Result.success(null)),
             RecordingProjects(),
-            FakeRewards(Result.failure(IOException("no signal")))
+            FakeRewards(Result.failure(IOException("no signal"))),
+            RecordingScheduler()
         )
         advanceUntilIdle()
 
@@ -266,12 +277,57 @@ class DashboardViewModelTest {
         val vm = DashboardViewModel(
             FakeAttendance(Result.success(null)),
             RecordingProjects(),
-            FakeRewards(Result.success(days))
+            FakeRewards(Result.success(days)),
+            RecordingScheduler()
         )
         advanceUntilIdle()
 
         assertEquals(5, vm.uiState.value.rewardWeek.size)
         assertFalse(vm.uiState.value.rewardUnavailable)
         assertEquals(RewardStatus.Qualified, vm.uiState.value.reward?.status)
+    }
+
+    @Test
+    fun `with no signal and nothing mirrored, the worker can still time in`() = runTest {
+        // 07:45 on a site with no bars, first action of the day. The
+        // dashboard used to hide the Time In button here, so a worker
+        // reached it and could record nothing -- which is the exact
+        // morning the whole offline layer exists for.
+        val vm = viewModel(Result.failure(IOException("no signal")))
+        advanceUntilIdle()
+
+        assertEquals(AttendanceFailure.NoConnection, vm.uiState.value.failure)
+        assertEquals(TimeDirection.IN, vm.uiState.value.nextAction)
+    }
+
+    @Test
+    fun `a server refusal still withholds the action`() = runTest {
+        // Unreachable and refusing are different. The caution stays where
+        // the server actually answered.
+        val vm = viewModel(Result.failure(IllegalStateException("ACCOUNT_INACTIVE")))
+        advanceUntilIdle()
+
+        assertNull(vm.uiState.value.nextAction)
+    }
+
+    @Test
+    fun `opening Home asks the queue to drain`() = runTest {
+        // A worker walking back into coverage opens the app and sees "Not
+        // sent yet". WorkManager's backoff doubles on every failed
+        // attempt, so after a morning with no signal the next try can be
+        // ten minutes away -- measured at seven on a real device. Opening
+        // Home is the clearest evidence a human is present and probably
+        // back in signal, so it starts a fresh attempt rather than making
+        // them wait out a delay they cannot see.
+        val scheduler = RecordingScheduler()
+        DashboardViewModel(
+            FakeAttendance(Result.success(null)),
+            RecordingProjects(),
+            FakeRewards(),
+            scheduler
+        )
+        advanceUntilIdle()
+
+        assertEquals(1, scheduler.kicks)
     }
 }

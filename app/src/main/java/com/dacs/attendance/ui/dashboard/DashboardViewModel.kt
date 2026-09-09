@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.dacs.attendance.data.repo.AttendanceRepository
 import com.dacs.attendance.data.repo.ProjectRepository
 import com.dacs.attendance.data.repo.RewardRepository
+import com.dacs.attendance.work.UploadScheduler
 import com.dacs.attendance.domain.AttendanceFailure
 import com.dacs.attendance.domain.AttendanceRecord
 import com.dacs.attendance.domain.AttendanceStatus
@@ -103,13 +104,38 @@ data class DashboardUiState(
      */
     val nextAction: TimeDirection?
         get() = when {
-            // Nothing is offered until today's record has actually been
-            // read. "Not loaded yet" and "no record today" are different
-            // facts, and a worker who acts on the first one as though it
-            // were the second times in twice.
-            loading || failure != null -> null
-            record == null -> TimeDirection.IN
-            else -> record.nextAction
+            // Still reading. "Not loaded yet" and "no record today" are
+            // different facts, and offering an action before the first
+            // one resolves invites a double Time In.
+            loading -> null
+
+            // A record settles it either way.
+            record != null -> record.nextAction
+
+            // ── NO SIGNAL, AND NOTHING MIRRORED FOR TODAY.
+            //
+            //    This is a worker at 07:45 on a site with no bars, about
+            //    to start their day -- the exact morning the queue, the
+            //    mirrors and the cached picker were all built for. It
+            //    used to fall into the `failure` branch below and remove
+            //    the Time In button entirely, so they reached the
+            //    dashboard and still could not record anything.
+            //
+            //    The double-Time-In worry is already handled, and handled
+            //    better than by hiding the button: the RPC refuses a
+            //    second one with ALREADY_TIMED_IN, and outcomeFor maps
+            //    that to DropAndReconcile, which discards the queued row
+            //    and repairs the mirror. The cost of guessing wrong is a
+            //    wasted photo. The cost of hiding the button is a day
+            //    that cannot be recorded at all.
+            failure == AttendanceFailure.NoConnection -> TimeDirection.IN
+
+            // Any OTHER failure is the server refusing or misbehaving
+            // rather than being unreachable, and the original caution
+            // still applies there.
+            failure != null -> null
+
+            else -> TimeDirection.IN
         }
 
     val working: Boolean get() = record?.status == AttendanceStatus.WORKING
@@ -142,7 +168,8 @@ data class DashboardUiState(
 class DashboardViewModel @Inject constructor(
     private val attendance: AttendanceRepository,
     private val projects: ProjectRepository,
-    private val rewards: RewardRepository
+    private val rewards: RewardRepository,
+    private val scheduler: UploadScheduler
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DashboardUiState())
@@ -154,6 +181,13 @@ class DashboardViewModel @Inject constructor(
 
     fun refresh() {
         _uiState.update { it.copy(loading = true, failure = null) }
+
+        // Opening Home is the clearest signal we get that a human is
+        // present and probably back in coverage. Anything still queued
+        // gets a fresh attempt now rather than waiting out a backoff that
+        // grew while there was no signal -- which measured at seven
+        // minutes on a device after only a handful of failed retries.
+        scheduler.sendNow()
 
         // Warm the project cache while we have signal. The picker reads
         // it offline, and a worker who has never opened the picker while

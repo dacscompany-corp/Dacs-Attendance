@@ -26,6 +26,9 @@ import java.time.Instant
 
 private const val TAG = "SubmissionWorker"
 
+/** A sane ceiling for one pass. A real queue is a handful of rows. */
+private const val MAX_PER_RUN = 50
+
 /**
  * Drains the submission queue.
  *
@@ -45,7 +48,6 @@ class SubmissionWorker @AssistedInject constructor(
     private val database: AttendanceDatabase,
     private val remote: SupabaseAttendanceRepository,
     private val photos: PhotoStore,
-    private val scheduler: SubmissionScheduler,
     private val client: io.github.jan.supabase.SupabaseClient
 ) : CoroutineWorker(context, params) {
 
@@ -55,22 +57,41 @@ class SubmissionWorker @AssistedInject constructor(
         val workerId = client.auth.currentUserOrNull()?.id.orEmpty()
         if (workerId.isEmpty()) return Result.success()
 
-        val queue = database.pendingSubmissions().sendable(workerId)
-        if (queue.isEmpty()) return Result.success()
+        // ── ONE RUN DRAINS THE QUEUE.
+        //
+        //    This used to send a single row and then chain another work
+        //    request for the rest. Combined with a work name that was
+        //    unique per EVENT, that meant several requests could be
+        //    runnable at once -- and each one asked nextToSend() for the
+        //    oldest row, so they all picked the SAME one and uploaded the
+        //    same photo. Measured on a device: three sends of one event
+        //    inside two seconds.
+        //
+        //    Draining here, under a single unique work name, means only
+        //    one attempt is ever in flight.
+        //
+        //    A failure still stops the pass and hands control back to
+        //    WorkManager, so retries keep its backoff and its network
+        //    constraint. Whatever is left goes on the next run.
+        repeat(MAX_PER_RUN) {
+            val queue = database.pendingSubmissions().sendable(workerId)
+            if (queue.isEmpty()) return Result.success()
 
-        val next = nextToSend(queue.map { it.toQueued() }, workerId)
-            ?: return Result.success()
-        val row = queue.first { it.eventId == next.eventId }
+            val next = nextToSend(queue.map { it.toQueued() }, workerId)
+                ?: return Result.success()
+            val row = queue.first { it.eventId == next.eventId }
 
-        val outcome = send(row, workerId)
-
-        // Anything still queued gets another run. Chaining rather than
-        // looping here keeps each attempt inside WorkManager's own
-        // backoff and constraints.
-        if (database.pendingSubmissions().sendable(workerId).isNotEmpty()) {
-            scheduler.enqueue(row.eventId + "-next")
+            val outcome = send(row, workerId)
+            // Anything but success is WorkManager's business: retry with
+            // backoff, or a permanent failure that has already been
+            // recorded on the row.
+            if (outcome !is Result.Success) return outcome
         }
-        return outcome
+
+        // Only reachable with an implausibly long queue. Let WorkManager
+        // schedule the remainder rather than looping here forever, which
+        // would hold a wakelock for as long as the queue kept growing.
+        return Result.success()
     }
 
     private suspend fun send(row: PendingSubmissionEntity, workerId: String): Result {
@@ -94,6 +115,21 @@ class SubmissionWorker @AssistedInject constructor(
             database.pendingSubmissions().markFailed(row.eventId, "PROJECT_RETIRED")
             return Result.success()
         }
+
+        // The one value this whole layer exists to protect. A queued row
+        // must reach the server carrying the SHUTTER time, never the
+        // upload time -- a Time In taken at 07:45 on a dead-signal site
+        // has to still say 07:45 when it lands at noon, or the reward
+        // calls every offline worker late.
+        //
+        // Logged because a record was once observed arriving stamped 13
+        // minutes after its capture, and the queue row is deleted on
+        // success, so there was nothing left to inspect afterwards.
+        Log.i(
+            TAG,
+            "sending ${row.eventId.take(8)} captured=" +
+                Instant.ofEpochMilli(row.capturedAt) + " offline=" + row.wasOffline
+        )
 
         val result = remote.submit(
             SubmissionRequest(

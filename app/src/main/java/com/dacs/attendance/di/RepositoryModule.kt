@@ -11,6 +11,8 @@ import com.dacs.attendance.data.repo.OfflineProjectRepository
 import com.dacs.attendance.data.repo.SupabaseAuthRepository
 import com.dacs.attendance.data.repo.SupabaseRewardRepository
 import com.dacs.attendance.data.repo.SupabaseTermsRepository
+import com.dacs.attendance.work.SubmissionScheduler
+import com.dacs.attendance.work.UploadScheduler
 import com.dacs.attendance.data.repo.TermsRepository
 import dagger.Binds
 import dagger.Module
@@ -52,4 +54,8 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindLocationSource(impl: LocationProvider): LocationSource
+
+    @Binds
+    @Singleton
+    abstract fun bindUploadScheduler(impl: SubmissionScheduler): UploadScheduler
 }
