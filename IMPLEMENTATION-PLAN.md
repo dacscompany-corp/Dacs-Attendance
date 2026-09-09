@@ -3,7 +3,19 @@
 Built from the rulings in [MVP-DECISIONS.md](MVP-DECISIONS.md). Read that first; this file assumes
 every decision in it.
 
-Next migration number is **0065** (highest on disk is `0064_folder_completion.sql`).
+> **DELIVERED — 2026-09-09.** Both phases are built, applied and verified on a physical handset.
+> This file is kept as the record of what was intended and in what order; §6 of MVP-DECISIONS.md
+> records what actually happened, including three bugs this plan did not anticipate.
+>
+> Migrations **0065–0071** are applied and tracked. Two numbers moved during the work: what this
+> plan calls `0067_attendance_geofence.sql` shipped as **0068**, because 0067 was spent on a
+> security fix — `attendance_week_days` had been left callable by every signed-in worker, since
+> `revoke ... from public` does not remove what Supabase's default privileges grant directly to
+> `anon` and `authenticated`. Two further migrations were not foreseen here at all: **0070**,
+> rewriting the schedule writes as RPCs after direct inserts failed silently, and **0071**, the
+> geofence editor's own RPC.
+
+Next migration number was **0065** (highest on disk was `0064_folder_completion.sql`).
 
 ---
 
@@ -17,7 +29,8 @@ migration, nothing that can stop a worker clocking in. If it is wrong, a report 
 requested, and turns GPS from unused plumbing into a gate that can refuse attendance. If it is
 wrong, workers cannot clock in and lose ₱500.
 
-**Ship Phase 1 first.** It delivers the reward — the thing the requirements document is mostly
+**Ship Phase 1 first.** *(Done, and it was the right call: the reward was in use and verified
+before anything began refusing attendance.)* It delivers the reward — the thing the requirements document is mostly
 about — at a fraction of the risk, and it lets the reward rule be validated against real weeks
 before anything starts blocking Time Ins.
 
@@ -201,3 +214,39 @@ Migrations are **never** applied through the SQL editor, and numbers are never r
 | Play Services absent | 2 | Rare but real on the cheapest handsets. Decide whether to fall back to `LocationManager` or refuse |
 | Supabase egress | Both | Already over quota with the grace period expired. §40's verification review pulls more signed photo URLs |
 | Requirements doc drift | Both | Six sections now describe behaviour that was decided against. Anyone building from it alone builds the wrong rule |
+
+---
+
+## Outcome
+
+| | |
+|---|---|
+| Migrations | 0065–0071 applied and tracked on `main` |
+| App | 176 tests, `com.dacs.attendance.debug` verified on device |
+| Admin | 404 tests across the Dacs Web suite |
+| Device test | All nine paths exercised — see MVP-DECISIONS.md §6 |
+
+### Where this plan was wrong
+
+**It assumed the risk was in Phase 2.** The plan says Phase 1 is "a *read* over attendance records
+that already exist… if it is wrong, a report is wrong", and treats location as the dangerous half.
+That held for the *database* work. But the worst bug of the whole project was in neither phase's
+design: the app read a failed network call as a signed-out session and locked workers out of the
+entire offline layer — the queue, the mirrors and the cached picker all stranded behind a login
+form a worker with no signal could not complete. It had been there before this work started.
+
+**It underestimated what only a device would reveal.** Three bugs — the offline lockout, WorkManager
+backoff stranding a synced record for seven minutes, and a queue race uploading one photo three
+times — needed a real handset, a real loss of signal, and somebody watching. The verification
+section of this plan lists test commands and a browser check; it should have listed a phone.
+
+**Two admin surfaces were missing from it entirely.** The geofence editor was never planned, so
+coordinates had to be typed into the SQL editor by hand until it was built. Neither was the fact
+that the schedule tables needed RPCs rather than direct inserts, which cost an hour of silent
+failures before the pattern already stated in 0050's header was applied.
+
+### Still not done
+
+- `require_geofence` is **off**, so nothing is radius-gated server-side
+- The holiday rule has never been demonstrated end to end
+- The isolation-rule wording in `Dacs Web/CLAUDE.md` still contradicts decision 15

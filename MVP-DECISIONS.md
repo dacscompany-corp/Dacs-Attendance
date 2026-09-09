@@ -3,7 +3,8 @@
 Decisions taken against *ATTENDANCE MANAGEMENT SYSTEM — MVP TERMS & REQUIREMENTS* (§32–45).
 Where a decision differs from that document, **this file wins** and the source document needs updating — see §3.
 
-Status: **all policy decided.** Remaining items are cleanup and configuration values, not decisions.
+Status: **all policy decided, and both phases built and verified on hardware** (2026-09-09).
+See §6 for what shipped and what the plan got wrong.
 
 ---
 
@@ -112,7 +113,18 @@ Anyone reading the requirements document as the source of truth will otherwise b
 
 ## 4. Still open
 
-### Required cleanup
+### Done since this list was written
+
+- ~~Terms version bump for precise location~~ — done. `VERSION` is `2026-09-v3`, with a
+  **Location check** clause and a **Weekly attendance reward** clause. Neither names a peso figure
+  or a cutoff time, because both are configuration the Owner can change and this text is hashed
+  into `agreement_events` as evidence.
+- ~~The six-day strip versus the five-day reward~~ — done. The reward has its own five-cell row
+  above the attendance strip, so the strip stays honest about the six-day working week.
+- ~~Accuracy threshold and default radius~~ — set to **50 m** and **150 m**, both editable per
+  project rather than compiled in.
+
+### Still outstanding
 
 1. **Amend the isolation rule rather than leave it false.** `Dacs Web/CLAUDE.md` and the header of
    `attendance-admin.js` both say flatly that there is no peso column in the attendance tables.
@@ -121,18 +133,19 @@ Anyone reading the requirements document as the source of truth will otherwise b
    is a reported figure only; it creates no accounting entry and nothing may make one from it.*
    Left as-is, the next person reads a rule the code visibly breaks and has to guess which is wrong.
 
-2. **Terms version bump** covering precise location capture, which `TermsGate` then enforces on
-   next launch. Now unavoidable — the app is about to require precise location as a condition of
-   recording work. Ties into the pending Clause 5 revision.
+2. **`require_geofence` is still off.** Nothing is radius-gated server-side. The refusal observed
+   on 2026-09-09 came from the DEVICE's own pre-check, which a modified client could skip. Turn the
+   flag on once real sites have coordinates — see the rollout note in 0068's header for why it
+   ships off.
 
-### Minor
+3. **The holiday rule has never been demonstrated end to end.** Every part underneath it works, but
+   nobody has yet marked a weekday closed and watched a Rewards row drop to `REQUIRED 4`. It is the
+   decision this document spends the most words on and the one with no observed proof.
 
-3. The Home screen draws a **six-day** week strip (Mon–Sat, deliberately) while the reward counts
-   five. Recommendation: give the reward its own five-cell widget rather than altering the strip,
-   so the attendance strip stays honest about the working week.
-
-4. The **accuracy threshold** and **default radius** numbers. §33 says these are configuration
-   rather than business rules, so they need values but not a decision here.
+4. **Worker names render as `—` in the reward CSV** when a profile has no `display_name`. The name
+   is snapshotted at evaluation, deliberately, so there is nothing to fall back to at render time.
+   A fallback would have to be chosen at evaluation (worker number, or the email local part) and
+   would only help future weeks.
 
 ---
 
@@ -145,3 +158,56 @@ per-project config table, evaluated on a delay and frozen into a reward record.
 The location work is the opposite — it changes the write path, adds a permission the app has
 never asked for, and turns GPS from unused plumbing into a gate. It should be planned separately,
 after decision 1 and 2 above.
+
+---
+
+## 6. What shipped, and what this plan got wrong
+
+Built across 2026-09-08/09 and verified on a physical handset, not just in tests.
+
+**Delivered:** migrations 0065–0071; the admin Rewards view, schedule editor and geofence editor;
+the app's reward strip, location capture, offline queue changes and Terms clauses. 176 app tests
+and 404 Dacs Web tests, all passing.
+
+**Verified on hardware**, because none of the following could be settled by unit tests:
+
+| Behaviour | Evidence |
+|---|---|
+| Offline capture keeps its shutter time | Log `captured=07:18:09.290Z`, DB `in_manila 15:18:09.29` |
+| No GPS fix is recorded and flagged, never refused | `timein_location_status = location_unavailable`, record present |
+| Inside the fence verifies with a real distance | `verified`, 18.25 m against a 150 m radius |
+| Outside the fence is refused at the gate | No row written, nothing queued, no upload attempted |
+| Hours come from the server | `total_minutes = 19` for 15:18 → 15:38 |
+
+### Three bugs the plan did not anticipate
+
+All three needed a real phone, a real loss of signal, and somebody watching. None would have been
+caught by any test written in advance, and each is worth remembering before the offline layer is
+touched again.
+
+1. **The offline lockout.** `currentWorker()` wrapped a network profile read in `runCatching` and
+   returned null on failure, so *unreachable* and *signed out* became the same answer. A worker
+   with no signal was dropped on a login form they could not complete — with the queue, the
+   mirrors and the cached picker all stranded behind it. Fixed by `WorkerCache`, plus a second
+   gap where `signIn()` did not seed that cache, so the first offline launch still had nothing to
+   recall. Two bugs stacked, which is why the first fix looked like it had failed.
+
+2. **Backoff stranding a synced record.** WorkManager doubles its retry delay on every failure, so
+   a morning without signal left the next attempt seven minutes out. The worker stood there
+   looking at "Not sent yet" with no way to tell whether it was broken or waiting. Opening Home
+   now starts a fresh attempt, discarding the accrued delay.
+
+3. **The queue race.** Work was enqueued uniquely per EVENT while the worker drained the queue
+   GLOBALLY, so several requests each took the oldest row and uploaded the same photo. Observed:
+   one event sent three times in two seconds. The server was never at risk — the event id is the
+   idempotency key — but the photo went to Storage three times, on a project already over its
+   egress quota. Fixed with a single work name and a worker that drains in one pass.
+
+### One thing the plan got right, and one it got lucky on
+
+The **phasing was correct**: shipping the reward first meant Phase 1 was in use and verified before
+anything started refusing attendance.
+
+The **`was_offline` branch in 0069** — refusing a live `OUTSIDE_RADIUS` but keeping and flagging a
+queued one — was written from reasoning alone and has still never fired in anger. It is the least
+exercised decision in this document.
