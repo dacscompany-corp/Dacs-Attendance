@@ -85,7 +85,7 @@ class WidgetAwareRepositoriesTest {
 
         val result = WidgetAwareAttendanceRepository(inner, widgets).submit(request)
 
-        assertSame(inner.submitResult, result)
+        assertSame(record, result.getOrNull())
         assertEquals(1, widgets.refreshes)
     }
 
@@ -106,7 +106,7 @@ class WidgetAwareRepositoriesTest {
 
         val result = WidgetAwareAttendanceRepository(inner, widgets).today()
 
-        assertSame(inner.todayResult, result)
+        assertSame(record, result.getOrNull())
         assertEquals(1, widgets.refreshes)
     }
 
