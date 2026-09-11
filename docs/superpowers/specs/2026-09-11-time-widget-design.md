@@ -162,7 +162,8 @@ follow the system theme.
 - **`widgetStateFor`:**
   - every row in §1
   - yesterday's record → `NotTimedIn`
-  - another worker's record is ignored
+  - another worker's data can't reach the function, because the reads are scoped by worker (see
+    the DAO test)
   - pending rows from another worker don't set `notSentYet`
   - a null worker → `SignedOut`, even when a record exists
 - **`resolveStartFlow`:**
