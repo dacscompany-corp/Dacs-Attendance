@@ -1,7 +1,7 @@
 # Time In / Time Out home-screen widget — design
 
 **Date:** 2026-09-11
-**Status:** Approved in brainstorming, awaiting spec review
+**Status:** Approved; plan at `docs/superpowers/plans/2026-09-11-time-widget.md`
 **Branch:** feat/b2-login-terms
 
 ## Goal
@@ -26,11 +26,12 @@ work date (`domain/WorkDate.kt`).
 
 | Today's state | Status line | Button |
 |---|---|---|
-| Signed out / no cached worker | "Sign in to DACS Attendance" | **Open app** |
+| Signed out / no cached worker | "Sign in to DACs Attendance" | **Open app** |
 | Signed in, no record today | "Not timed in" | **Time In** |
 | `working` | "Timed in 8:52 AM" | **Time Out** |
 | `complete` | "Done for today · 8:52 AM – 5:10 PM" | none |
 | `abandoned` | "Day closed without Time Out" | none |
+| Unknown status, or the local read failed | "Open the app to see today" | none |
 | Any of the above, with that worker's submission still queued | adds "Not sent yet" under the status | same as the row above |
 
 - The copy is English-only, following the v2 redesign rule. The widget shows no failure notices,
@@ -53,14 +54,16 @@ calls.
 3. **Pending flag:** a new query, `PendingSubmissionDao.hasPendingFor(workerId): Boolean`. It is
    scoped by worker, because the existing `observeAll()` is not.
 
-A pure function, `widgetStateFor(workerId: String?, record: CachedRecordEntity?, today: LocalDate,
+A pure function, `widgetStateFor(workerId: String?, record: AttendanceRecord?, today: WorkDate,
 hasPending: Boolean): WidgetState`, maps those inputs to the rows in §1.
 
 - `WidgetState` is a small sealed type: `SignedOut`, `NotTimedIn`, `Working(timeInAt)`,
-  `Complete(timeInAt, timeOutAt)` and `Abandoned`. Each case carries `notSentYet: Boolean`.
+  `Complete(timeInAt, timeOutAt)`, `Abandoned` and `Unknown`. Each case carries
+  `notSentYet: Boolean`.
 - The mapping has these defensive rules:
   - a record whose `workDate != today` is treated as no record
-  - a record whose `workerId != workerId` is treated as no record
+  - a record belonging to another worker can't reach the function at all, because both reads
+    are scoped by `workerId`
 - All of the widget's logic lives in this function. The Glance composable only renders a
   `WidgetState`.
 
@@ -69,20 +72,31 @@ hasPending: Boolean): WidgetState`, maps those inputs to the rows in §1.
 The app pushes refreshes through a `WidgetRefresher` interface, injected by Hilt. Its real
 implementation calls Glance's `DacsTimeWidget().updateAll(context)`, and tests use a fake.
 
-`refresh()` is called from:
+`refresh()` is called at these moments. Moments 1, 3 and 4 go through decorators,
+`WidgetAwareAttendanceRepository` and `WidgetAwareAuthRepository`, which Hilt wraps around the
+real repositories. That way they can be JVM-tested without Supabase or Room.
 
-1. **`OfflineAttendanceRepository.submit()`**, after the optimistic `cached_record` upsert. The
-   widget then shows the new state and "Not sent yet" straight away, even offline.
-2. **`SubmissionWorker`**, after it drains the queue or writes the server's row back into the
-   mirror. This clears "Not sent yet".
-3. **Sign-in and sign-out in `SupabaseAuthRepository`**, where `WorkerCache` is written or
-   cleared. After a sign-out the widget shows `SignedOut` and no times from the previous worker.
-4. **`DashboardViewModel.refresh()`**, after a server reconcile, to pick up corrections made on
-   the server.
-5. **The existing 15-minute periodic sweeper.** It covers the Manila-midnight rollover, when
-   "Done for today" becomes "Not timed in" within about 15 minutes.
+1. **After `AttendanceRepository.submit()`**, which includes the optimistic `cached_record`
+   upsert. The widget then shows the new state and "Not sent yet" straight away, even offline.
+2. **After every `SubmissionWorker` run** (in `finally`), whether the run drained the queue,
+   wrote the server's row back, or is in retry. This clears "Not sent yet".
+3. **After sign-in and sign-out.** After a sign-out the widget shows `SignedOut` and no times from
+   the previous worker.
+   - `SupabaseAuthRepository.signOut()` also now forgets `lastSignedInId` when
+     `currentUserOrNull()` is null offline. Previously that case left the id standing, so both
+     `currentWorker()` and the widget kept resolving the worker who had signed out.
+4. **After `AttendanceRepository.today()`**, the server reconcile that `DashboardViewModel.refresh()`
+   runs, so corrections made on the server reach the widget.
+5. **The existing 15-minute periodic sweeper**, which runs `SubmissionWorker` and so is covered
+   by moment 2. When online, it covers the Manila-midnight rollover: "Done for today" becomes
+   "Not timed in" within about 15 minutes.
 
-The widget provider's `updatePeriodMillis` is set to 30 minutes as a backstop.
+The widget provider's `updatePeriodMillis` is set to 30 minutes as a backstop. It is also what
+rolls the day over offline, because the sweeper only runs with a connection.
+
+A running Glance session only recomposes on update; it doesn't re-run `provideGlance`. So the
+refresher also bumps a `RefreshTick` in the widget's Glance state, and the content re-reads
+whenever that tick changes.
 
 **Failure policy:** `refresh()` never throws to its caller. A widget update failure is logged and
 swallowed, so it can never fail a submission, a sync or a sign-out.
@@ -93,11 +107,13 @@ swallowed, so it can never fail a submission, a sync or a sign-out.
   - The widget's button launches `MainActivity` with the extra
     `EXTRA_START_FLOW = "IN" | "OUT"`.
   - The "Open app" button and taps on the widget body launch it with no extra.
-  - Time In and Time Out use distinct PendingIntent request codes, so Android doesn't merge them.
+  - Time In and Time Out use distinct intent actions, so Android doesn't merge their
+    PendingIntents.
 - **Manifest:** `MainActivity` gets `android:launchMode="singleTop"`. Without it, a tap while the
   app is open would stack a second `MainActivity` instead of calling `onNewIntent`.
-- **Reading the request:** `MainActivity` reads the extra in `onCreate` and `onNewIntent`, then
-  removes it from the intent. A process restore or recreation therefore can't replay it.
+- **Reading the request:** `MainActivity` reads the extra in `onNewIntent`, and in `onCreate`
+  only when `savedInstanceState == null`, then removes it from the intent. A process restore or
+  recreation therefore can't replay it.
 - **Handing it on:** the request is passed to the root as a one-shot `pendingStartFlow:
   TimeDirection?`, and `AttendanceRoot` consumes it:
   - **Not `SignedIn`** (Loading resolves to SignedOut, NeedsTerms or GateUnavailable): the request
@@ -114,9 +130,10 @@ swallowed, so it can never fail a submission, a sync or a sign-out.
 - **The flow itself:** it is the same `TimeFlowScreen` and `TimeFlowViewModel` the Home button
   uses, and submit triggers the §2 refresh.
 
-The decision is a pure function, `resolveStartFlow(request, appState, flowOpen, nextAction):
-StartFlowDecision` (`Open(direction)` / `StayOnHome` / `Drop` / `WaitForNextAction`), so it can be
-unit-tested.
+The decision is a pure function, `resolveStartFlow(request, appState, flowOpen, home:
+DashboardUiState?): StartFlowDecision` (`Open(direction)` / `StayOnHome` / `Drop` / `Wait`), so it
+can be unit-tested. Before deciding, Home re-reads today, because its ViewModel outlives the
+screen and may be stale too.
 
 ## 4. Components and files
 
@@ -124,14 +141,16 @@ unit-tested.
 |---|---|---|
 | `glance-appwidget` dependency | `gradle/libs.versions.toml`, `app/build.gradle.kts` | Glance runtime |
 | `WidgetState`, `widgetStateFor` | `domain/WidgetState.kt` | Pure mapping from local data to state |
-| `resolveStartFlow` | `domain/StartFlowRequest.kt` | Pure launch-request decision |
+| `resolveStartFlow` | `ui/StartFlowRequest.kt` (decides over UI types) | Pure launch-request decision |
+| `WidgetAwareAttendanceRepository`, `WidgetAwareAuthRepository` | `widget/`, provided in `di/WidgetModule.kt` | Refresh after state-changing calls |
 | `DacsTimeWidget` (GlanceAppWidget), `DacsTimeWidgetReceiver` | `widget/` | Renders a `WidgetState`; builds the launch intents |
 | `WidgetEntryPoint` | `widget/` | Hilt entry point for the DAOs, `WorkerCache` and auth |
 | `WidgetRefresher` + `GlanceWidgetRefresher` | `widget/`, bound in `di/` | Push refresh; never throws |
 | `hasPendingFor(workerId)` | `data/local/AttendanceDao.kt` | New query, no schema change |
 | Widget provider XML + manifest `<receiver>` | `res/xml/`, `AndroidManifest.xml` | Registration, preview, 30-min backstop |
 | `singleTop` + intent handling | `MainActivity.kt`, `AttendanceRoot.kt` | One-shot start-flow request |
-| Refresh call sites | `OfflineAttendanceRepository`, `SubmissionWorker`, `SupabaseAuthRepository`, `DashboardViewModel`, sweeper | Keep the widget current |
+| Refresh call sites | the two decorators, `SubmissionWorker` (also the sweeper) | Keep the widget current |
+| Offline sign-out fix | `SupabaseAuthRepository.signOut()` | Forget `lastSignedInId` even when the client reports nobody |
 
 The widget's colors come from the existing theme tokens. It has a light and a dark variant that
 follow the system theme.
