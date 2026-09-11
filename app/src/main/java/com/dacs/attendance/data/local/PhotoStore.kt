@@ -83,23 +83,32 @@ class PhotoStore @Inject constructor(
      * CameraX records rotation in EXIF rather than rotating the pixels.
      * Ignoring it burns the caption sideways across half the phones in
      * the field.
+     *
+     * And the MIRROR: a front-camera shot is saved as previewed, which
+     * CameraX also writes to EXIF, as one of the four flipped
+     * orientations (TRANSVERSE on a typical upright phone). Reading only
+     * the three rotations files that photo sideways and un-mirrored.
      */
     private fun decodeUpright(source: File): Bitmap {
-        val bitmap = BitmapFactory.decodeFile(source.absolutePath)
-            ?: error("Could not decode captured photo")
+        // Mutable, because when no transform is needed this is the bitmap
+        // the caption is drawn on. A 2 MP front camera -- common on the
+        // phones in the field -- is inside the size budget, so nothing
+        // else copies it first, and Canvas refuses an immutable bitmap.
+        val bitmap = BitmapFactory.decodeFile(
+            source.absolutePath,
+            BitmapFactory.Options().apply { inMutable = true }
+        ) ?: error("Could not decode captured photo")
 
-        val degrees = when (
-            ExifInterface(source.absolutePath)
-                .getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
-        ) {
-            ExifInterface.ORIENTATION_ROTATE_90 -> 90f
-            ExifInterface.ORIENTATION_ROTATE_180 -> 180f
-            ExifInterface.ORIENTATION_ROTATE_270 -> 270f
-            else -> 0f
+        val exif = ExifInterface(source.absolutePath)
+        val degrees = exif.rotationDegrees
+        val flipped = exif.isFlipped
+        if (degrees == 0 && !flipped) return bitmap
+
+        // Flip FIRST, then rotate: the order rotationDegrees assumes.
+        val matrix = android.graphics.Matrix().apply {
+            if (flipped) postScale(-1f, 1f)
+            postRotate(degrees.toFloat())
         }
-        if (degrees == 0f) return bitmap
-
-        val matrix = android.graphics.Matrix().apply { postRotate(degrees) }
         val rotated =
             Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
         if (rotated !== bitmap) bitmap.recycle()

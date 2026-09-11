@@ -31,6 +31,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Apartment
+import androidx.compose.material.icons.filled.Cameraswitch
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -41,8 +42,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -81,13 +84,19 @@ import java.util.concurrent.Executor
 import kotlinx.coroutines.delay
 
 /**
- * Step 2. The selfie that proves attendance.
+ * Step 2. The photo that proves attendance.
  *
- * FRONT camera and no gallery picker anywhere in the app -- a photo that
- * must be taken now, at the site, by the person holding the phone, is the
- * cheapest anti-spoofing measure available. That is also why the design's
- * camera-switch control is not built: it would undo the whole point of
- * the screen. See the note on [ShutterRow].
+ * No gallery picker anywhere in the app -- a photo that must be taken
+ * now, at the site, is the cheapest anti-spoofing measure available.
+ *
+ * FRONT camera by default, BACK one tap away. This screen was front-only
+ * at first, to keep it a selfie; the design's camera-switch was added
+ * back on request (2026-09-11). The in-app capture above is what still
+ * holds the line. See the note on [ShutterRow].
+ *
+ * The front camera is SAVED AS PREVIEWED, i.e. mirrored. PreviewView
+ * mirrors it and ImageCapture does not, so without that the filed photo
+ * is the reverse of the one the worker lined up and approved.
  *
  * The caption at the top of the preview is the SAME text that gets burned
  * into the file, shown before the shutter rather than after. A worker who
@@ -117,6 +126,16 @@ fun CameraStep(
     var granted by remember { mutableStateOf(context.hasCameraPermission()) }
     var capturing by remember { mutableStateOf(false) }
     val imageCapture = remember { ImageCapture.Builder().build() }
+
+    // Front unless the phone has none. Hard-coding the front selector
+    // left a phone without one staring at a black preview.
+    val hasFront = remember { context.hasCameraLens(PackageManager.FEATURE_CAMERA_FRONT) }
+    val hasBack = remember { context.hasCameraLens(PackageManager.FEATURE_CAMERA) }
+    var lensFacing by rememberSaveable {
+        mutableIntStateOf(
+            if (hasFront) CameraSelector.LENS_FACING_FRONT else CameraSelector.LENS_FACING_BACK
+        )
+    }
 
     // ── CAMERA AND LOCATION ARE ASKED FOR TOGETHER, here.
     //
@@ -218,7 +237,8 @@ fun CameraStep(
                             view.scaleType = PreviewView.ScaleType.FILL_CENTER
                         }
                     },
-                    update = { view -> bindCamera(view, lifecycleOwner, imageCapture) }
+                    // Reads lensFacing, so a switch re-runs this and rebinds.
+                    update = { view -> bindCamera(view, lifecycleOwner, imageCapture, lensFacing) }
                 )
 
                 FaceGuide(Modifier.fillMaxSize())
@@ -297,10 +317,25 @@ fun CameraStep(
             capturing = capturing,
             onClick = {
                 capturing = true
-                imageCapture.takeInto(context) { file, takenAt ->
+                imageCapture.takeInto(
+                    context,
+                    mirror = lensFacing == CameraSelector.LENS_FACING_FRONT
+                ) { file, takenAt ->
                     capturing = false
                     if (file != null && takenAt != null) onPhotoTaken(file, takenAt)
                 }
+            },
+            // Only offered when there is something to switch TO.
+            onSwitchCamera = if (hasFront && hasBack) {
+                {
+                    lensFacing = if (lensFacing == CameraSelector.LENS_FACING_FRONT) {
+                        CameraSelector.LENS_FACING_BACK
+                    } else {
+                        CameraSelector.LENS_FACING_FRONT
+                    }
+                }
+            } else {
+                null
             }
         )
     }
@@ -391,19 +426,25 @@ private fun StampChip(name: String, stamp: String, modifier: Modifier = Modifier
 }
 
 /**
- * The shutter, alone.
+ * The shutter, with the camera-switch on its right.
  *
- * The design flanks it with a flash toggle and a camera-switch. Neither
- * is built, deliberately:
- *   - switching cameras defeats the front-camera-only rule this whole
- *     screen exists to enforce;
- *   - a flash control on a front camera is inert on most of the phones
- *     this app targets, and a button that does nothing on the screen
- *     where a worker is already unsure is worse than no button.
- * The shutter keeps the design's size, ring and centring.
+ * The design flanks it with a flash toggle and a camera-switch. The
+ * switch is built; the flash is not, deliberately: a flash control on a
+ * front camera is inert on most of the phones this app targets, and a
+ * button that does nothing on the screen where a worker is already
+ * unsure is worse than no button.
+ *
+ * [onSwitchCamera] is null on a phone with only one camera, and the
+ * button is simply not there. Three equal slots, so the shutter keeps
+ * the design's size, ring and centring whether it is or not.
  */
 @Composable
-private fun ShutterRow(enabled: Boolean, capturing: Boolean, onClick: () -> Unit) {
+private fun ShutterRow(
+    enabled: Boolean,
+    capturing: Boolean,
+    onClick: () -> Unit,
+    onSwitchCamera: (() -> Unit)?
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -413,8 +454,10 @@ private fun ShutterRow(enabled: Boolean, capturing: Boolean, onClick: () -> Unit
                 top = 18.dp,
                 bottom = Dimens.BottomPadding
             ),
-        horizontalArrangement = Arrangement.Center
+        verticalAlignment = Alignment.CenterVertically
     ) {
+        Box(Modifier.weight(1f))
+
         Box(
             modifier = Modifier
                 .size(Dimens.Shutter)
@@ -454,6 +497,32 @@ private fun ShutterRow(enabled: Boolean, capturing: Boolean, onClick: () -> Unit
                 }
             }
         }
+
+        Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+            if (onSwitchCamera != null) {
+                Box(
+                    modifier = Modifier
+                        .size(52.dp)
+                        .clip(CircleShape)
+                        // Not mid-capture: rebinding under a shutter that
+                        // has already fired loses the photo.
+                        .clickable(enabled = enabled, onClick = onSwitchCamera)
+                        .background(Color.White.copy(alpha = if (enabled) 0.16f else 0.06f))
+                        .semantics {
+                            contentDescription = "Switch camera"
+                            role = Role.Button
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Cameraswitch,
+                        contentDescription = null,
+                        tint = Color.White.copy(alpha = if (enabled) 1f else 0.4f),
+                        modifier = Modifier.size(26.dp)
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -468,10 +537,14 @@ private fun Context.hasLocationPermission(): Boolean =
         ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) ==
         PackageManager.PERMISSION_GRANTED
 
+private fun Context.hasCameraLens(feature: String): Boolean =
+    packageManager.hasSystemFeature(feature)
+
 private fun bindCamera(
     view: PreviewView,
     lifecycleOwner: androidx.lifecycle.LifecycleOwner,
-    imageCapture: ImageCapture
+    imageCapture: ImageCapture,
+    lensFacing: Int
 ) {
     val providerFuture = ProcessCameraProvider.getInstance(view.context)
     providerFuture.addListener({
@@ -483,7 +556,7 @@ private fun bindCamera(
             provider.unbindAll()
             provider.bindToLifecycle(
                 lifecycleOwner,
-                CameraSelector.DEFAULT_FRONT_CAMERA,
+                CameraSelector.Builder().requireLensFacing(lensFacing).build(),
                 preview,
                 imageCapture
             )
@@ -498,13 +571,19 @@ private fun bindCamera(
  * The timestamp is taken at the shutter, in this process -- it is what
  * becomes captured_at, and therefore what the record says about when the
  * worker was on site.
+ *
+ * [mirror] only tags the EXIF; the pixels are flipped later, by PhotoStore
+ * (and on the review screen, by Coil). ImageCapture has no mirror mode
+ * of its own -- its setMirrorMode throws.
  */
 private fun ImageCapture.takeInto(
     context: Context,
+    mirror: Boolean,
     onResult: (File?, Instant?) -> Unit
 ) {
     val file = File.createTempFile("attendance-", ".jpg", context.cacheDir)
-    val output = ImageCapture.OutputFileOptions.Builder(file).build()
+    val metadata = ImageCapture.Metadata().apply { isReversedHorizontal = mirror }
+    val output = ImageCapture.OutputFileOptions.Builder(file).setMetadata(metadata).build()
     val executor: Executor = ContextCompat.getMainExecutor(context)
 
     takePicture(
