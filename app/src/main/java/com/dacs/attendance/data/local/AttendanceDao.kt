@@ -30,6 +30,17 @@ interface PendingSubmissionDao {
     @Query("SELECT * FROM pending_submission ORDER BY createdAt ASC")
     fun observeAll(): Flow<List<PendingSubmissionEntity>>
 
+    /**
+     * Drives the widget's "Not sent yet". Scoped to ONE worker, for the
+     * same reason [sendable] is. Permanently failed rows are left out: they
+     * will never be sent, and "not sent YET" would promise that they will.
+     */
+    @Query(
+        "SELECT EXISTS(SELECT 1 FROM pending_submission " +
+            "WHERE workerId = :workerId AND failedPermanently = 0)"
+    )
+    suspend fun hasPendingFor(workerId: String): Boolean
+
     @Query("UPDATE pending_submission SET attempts = attempts + 1, lastError = :error WHERE eventId = :eventId")
     suspend fun recordAttempt(eventId: String, error: String?)
 
