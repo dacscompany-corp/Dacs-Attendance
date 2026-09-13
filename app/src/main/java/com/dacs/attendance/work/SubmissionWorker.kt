@@ -23,6 +23,8 @@ import com.dacs.attendance.widget.WidgetRefresher
 import com.dacs.attendance.widget.refreshQuietly
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.time.Instant
 
@@ -62,11 +64,17 @@ class SubmissionWorker @AssistedInject constructor(
      * widget at least every 15 minutes -- which is what rolls a finished
      * day over after Manila midnight. In `finally`, so a retry or an early
      * return still leaves the widget telling the truth about the queue.
+     *
+     * The refresh itself runs under `NonCancellable`: a cancelled run may
+     * still have drained rows, and every Glance call inside `refresh()` is
+     * a suspend function that would otherwise die at its first suspension
+     * point on an already-cancelled Job, leaving the widget claiming a
+     * queue that is gone.
      */
     override suspend fun doWork(): Result = try {
         drain()
     } finally {
-        widgets.refreshQuietly()
+        withContext(NonCancellable) { widgets.refreshQuietly() }
     }
 
     private suspend fun drain(): Result {
