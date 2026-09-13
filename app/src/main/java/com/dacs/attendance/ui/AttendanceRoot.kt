@@ -14,6 +14,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -62,6 +63,17 @@ fun AttendanceRoot(
     viewModel: RootViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val startFlowRequest by viewModel.startFlowRequest.collectAsStateWithLifecycle()
+
+    // A widget tap that lands on Login, Terms or the offline gate is
+    // forgotten rather than held: after signing in the worker should reach
+    // Home, not be dropped into a camera they asked for minutes ago.
+    LaunchedEffect(startFlowRequest, state) {
+        val request = startFlowRequest ?: return@LaunchedEffect
+        if (resolveStartFlow(request, state, flowOpen = false, home = null) == StartFlowDecision.Drop) {
+            viewModel.consumeStartFlow()
+        }
+    }
 
     when (val current = state) {
         AppState.Loading -> LoadingScreen(modifier)
@@ -86,6 +98,8 @@ fun AttendanceRoot(
         is AppState.SignedIn -> SignedInArea(
             worker = current.worker,
             onSignOut = viewModel::onSignOut,
+            startFlowRequest = startFlowRequest,
+            onStartFlowRequestHandled = viewModel::consumeStartFlow,
             modifier = modifier
         )
     }
@@ -153,6 +167,8 @@ private fun GateUnavailableScreen(
 private fun SignedInArea(
     worker: WorkerProfile,
     onSignOut: () -> Unit,
+    startFlowRequest: TimeDirection?,
+    onStartFlowRequestHandled: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var flow by rememberSaveable { mutableStateOf<TimeDirection?>(null) }
@@ -163,6 +179,18 @@ private fun SignedInArea(
 
     /** Set when a flow was abandoned for a reason worth telling Home about. */
     var exitNotice by rememberSaveable { mutableStateOf<FlowExit?>(null) }
+
+    // A widget tap. Mid-flow it is dropped -- the capture in progress is
+    // the worker's, and a tap on the home screen must not throw away a
+    // photo they already took. Otherwise Home is brought forward, and
+    // decides (see DashboardScreen).
+    LaunchedEffect(startFlowRequest) {
+        val request = startFlowRequest ?: return@LaunchedEffect
+        when (resolveStartFlow(request, AppState.SignedIn(worker), flowOpen = flow != null, home = null)) {
+            StartFlowDecision.Drop -> onStartFlowRequestHandled()
+            else -> tab = WorkerTab.HOME
+        }
+    }
 
     val direction = flow
     if (direction != null) {
@@ -223,7 +251,9 @@ private fun SignedInArea(
                     // as tapping History, so it moves the same tab rather
                     // than opening a second copy of the screen.
                     onSeeHistory = { tab = WorkerTab.HISTORY },
-                    refreshKey = reloadKey
+                    refreshKey = reloadKey,
+                    startFlowRequest = startFlowRequest,
+                    onStartFlowRequestHandled = onStartFlowRequestHandled
                 )
                 WorkerTab.HISTORY -> HistoryScreen()
                 WorkerTab.PROFILE -> ProfileScreen(worker = worker, onSignOut = onSignOut)

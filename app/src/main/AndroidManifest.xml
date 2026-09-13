@@ -45,9 +45,13 @@
         android:supportsRtl="false"
         android:theme="@style/Theme.DacsAttendance">
 
+        <!-- singleTop: a widget tap while the app is open must reach this
+             activity through onNewIntent. Without it, Android stacks a
+             second copy of the app on top of the first. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTop"
             android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize"
             android:theme="@style/Theme.DacsAttendance">

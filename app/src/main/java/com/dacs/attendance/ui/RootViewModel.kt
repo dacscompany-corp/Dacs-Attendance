@@ -8,6 +8,7 @@ import com.dacs.attendance.data.repo.TermsRepository
 import com.dacs.attendance.domain.AttendanceTerms
 import com.dacs.attendance.domain.Eligibility
 import com.dacs.attendance.domain.StartupGate
+import com.dacs.attendance.domain.TimeDirection
 import com.dacs.attendance.domain.WorkerProfile
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -39,6 +40,25 @@ class RootViewModel @Inject constructor(
 
     private val _state = MutableStateFlow<AppState>(AppState.Loading)
     val state: StateFlow<AppState> = _state.asStateFlow()
+
+    private val _startFlowRequest = MutableStateFlow<TimeDirection?>(null)
+
+    /**
+     * A Time In / Time Out asked for from the home-screen widget, not yet
+     * acted on. One-shot: whoever acts on it calls [consumeStartFlow].
+     *
+     * Held here, not in the Activity, so it survives a configuration
+     * change between the tap and the moment Home can decide.
+     */
+    val startFlowRequest: StateFlow<TimeDirection?> = _startFlowRequest.asStateFlow()
+
+    fun requestStartFlow(direction: TimeDirection) {
+        _startFlowRequest.value = direction
+    }
+
+    fun consumeStartFlow() {
+        _startFlowRequest.value = null
+    }
 
     init {
         // The session is restored from encrypted storage, so this is the

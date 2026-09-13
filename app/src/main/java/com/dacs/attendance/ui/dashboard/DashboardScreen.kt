@@ -61,6 +61,9 @@ import com.dacs.attendance.ui.components.CardDivider
 import com.dacs.attendance.ui.components.IconTile
 import com.dacs.attendance.ui.components.SectionLabel
 import com.dacs.attendance.ui.components.StatusPill
+import com.dacs.attendance.ui.AppState
+import com.dacs.attendance.ui.StartFlowDecision
+import com.dacs.attendance.ui.resolveStartFlow
 import com.dacs.attendance.ui.theme.BorderDefault
 import com.dacs.attendance.ui.theme.Brown
 import com.dacs.attendance.ui.theme.BrownDeep
@@ -87,6 +90,7 @@ import java.time.Instant
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 
 private val DayOfWeekHeading = DateTimeFormatter.ofPattern("EEEE", Locale.ENGLISH)
 private val DateHeading = DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.ENGLISH)
@@ -119,12 +123,39 @@ fun DashboardScreen(
      * in. This is the explicit re-read.
      */
     refreshKey: Int = 0,
+    /**
+     * A Time In / Time Out asked for from the home-screen widget. Opened
+     * only if it matches what this screen would offer after re-reading
+     * today; otherwise the worker simply stays here, looking at the truth.
+     */
+    startFlowRequest: TimeDirection? = null,
+    onStartFlowRequestHandled: () -> Unit = {},
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     LaunchedEffect(refreshKey) {
         if (refreshKey > 0) viewModel.refresh()
+    }
+
+    LaunchedEffect(startFlowRequest) {
+        val request = startFlowRequest ?: return@LaunchedEffect
+        // The widget may be behind, and so may this ViewModel -- it
+        // outlives the screen. Re-read today before deciding, unless a read
+        // is already under way.
+        if (!viewModel.uiState.value.loading) viewModel.refresh()
+        val settled = viewModel.uiState.first { !it.loading }
+
+        when (val decision = resolveStartFlow(request, AppState.SignedIn(worker), flowOpen = false, home = settled)) {
+            is StartFlowDecision.Open -> {
+                onStartFlowRequestHandled()
+                onStartFlow(decision.direction)
+            }
+            StartFlowDecision.StayOnHome, StartFlowDecision.Drop -> onStartFlowRequestHandled()
+            // Unreachable: settled is never loading. Left explicit so a
+            // new decision cannot be added without being handled here.
+            StartFlowDecision.Wait -> Unit
+        }
     }
 
     // The live "Hours so far". A minute is the smallest unit anyone reads
