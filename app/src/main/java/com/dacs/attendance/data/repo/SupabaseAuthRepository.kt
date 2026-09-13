@@ -87,6 +87,14 @@ class SupabaseAuthRepository @Inject constructor(
         (client.auth.currentUserOrNull()?.id ?: workerCache.lastSignedInId)
             ?.let(workerCache::forget)
         runCatchingExceptCancellation { client.auth.signOut() }
+        // signOut() only reaches clearSession() if the server call
+        // succeeds, and offline it throws first -- the POST to `logout`
+        // is a plain network exception, not a RestException, so it
+        // propagates before the session is cleared. The local session has
+        // to go regardless, because the widget resolves its worker from
+        // currentUserOrNull() and a session outliving its sign-out is the
+        // last worker's day on a shared phone's home screen.
+        runCatchingExceptCancellation { client.auth.clearSession() }
     }
 
     /**

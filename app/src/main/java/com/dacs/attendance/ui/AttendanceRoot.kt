@@ -192,6 +192,14 @@ private fun SignedInArea(
         }
     }
 
+    // A request the worker walked away from is not one they still want.
+    // DashboardScreen consumes the request only after re-reading today, so
+    // leaving Home mid-read would otherwise leave it live -- and opening a
+    // camera minutes later, for a tap the worker has forgotten making.
+    LaunchedEffect(tab) {
+        if (tab != WorkerTab.HOME) onStartFlowRequestHandled()
+    }
+
     val direction = flow
     if (direction != null) {
         // No bottom bar while recording.
