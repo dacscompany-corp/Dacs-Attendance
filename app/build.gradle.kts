@@ -142,6 +142,8 @@ dependencies {
     // already the engine here -- this adds a fetcher, not a second stack.
     implementation(libs.coil.network.okhttp)
     implementation(libs.play.services.location)
+    // The home-screen widget: today's status, and a way into the flow.
+    implementation(libs.androidx.glance.appwidget)
     // CameraX writes rotation to EXIF rather than rotating pixels.
     implementation(libs.androidx.exifinterface)
 

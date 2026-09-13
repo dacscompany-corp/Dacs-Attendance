@@ -35,6 +35,10 @@ coil = "3.2.0"
 # onto a site they are not standing on.
 playServicesLocation = "21.3.0"
 
+# The home-screen widget. Glance rather than hand-written RemoteViews:
+# it is Compose-shaped, like the rest of the UI.
+glance = "1.1.1"
+
 # B2 — the app first talks to Supabase here.
 # supabase-kt 3.1.4 is the newest STABLE (3.2.0 is still rc/beta at time of
 # writing); ktor 3.1.3 is the client engine it is built against.
@@ -88,6 +92,7 @@ androidx-camera-view        = { group = "androidx.camera",           name = "cam
 coil-compose                = { group = "io.coil-kt.coil3",          name = "coil-compose",             version.ref = "coil" }
 coil-network-okhttp         = { group = "io.coil-kt.coil3",          name = "coil-network-okhttp",      version.ref = "coil" }
 play-services-location      = { group = "com.google.android.gms",   name = "play-services-location",   version.ref = "playServicesLocation" }
+androidx-glance-appwidget   = { group = "androidx.glance",           name = "glance-appwidget",         version.ref = "glance" }
 
 androidx-exifinterface      = { group = "androidx.exifinterface",    name = "exifinterface",            version.ref = "exif" }
 androidx-room-runtime       = { group = "androidx.room",             name = "room-runtime",             version.ref = "room" }
