@@ -85,6 +85,11 @@ real repositories. That way they can be JVM-tested without Supabase or Room.
    - `SupabaseAuthRepository.signOut()` also now forgets `lastSignedInId` when
      `currentUserOrNull()` is null offline. Previously that case left the id standing, so both
      `currentWorker()` and the widget kept resolving the worker who had signed out.
+   - It also clears the local session explicitly. supabase-kt's own `signOut()` posts to the
+     server first and only clears afterwards, so offline the post throws and the session
+     survives -- leaving `currentUserOrNull()` still naming the worker who just signed out. The
+     app screen hid this (it falls back to the empty profile cache), but the widget reads that
+     id directly, which would have put the last worker's day on a shared phone's home screen.
 4. **After `AttendanceRepository.today()`**, the server reconcile that `DashboardViewModel.refresh()`
    runs, so corrections made on the server reach the widget.
 5. **The existing 15-minute periodic sweeper**, which runs `SubmissionWorker` and so is covered
