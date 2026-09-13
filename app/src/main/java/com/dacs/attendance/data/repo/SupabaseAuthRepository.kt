@@ -78,7 +78,14 @@ class SupabaseAuthRepository @Inject constructor(
         // Cleared BEFORE the session goes, while the id is still readable.
         // Site phones are shared, and a cached profile outliving its
         // session would greet the next worker with the last one's name.
-        client.auth.currentUserOrNull()?.id?.let(workerCache::forget)
+        //
+        // The cached id is the fallback because offline the client can
+        // report nobody for a session it holds. Without it, a sign-out
+        // with no signal left lastSignedInId standing -- and currentWorker()
+        // and the home-screen widget both kept resolving the worker who
+        // had just signed out.
+        (client.auth.currentUserOrNull()?.id ?: workerCache.lastSignedInId)
+            ?.let(workerCache::forget)
         runCatchingExceptCancellation { client.auth.signOut() }
     }
 

@@ -19,6 +19,8 @@ import com.dacs.attendance.domain.TimeDirection
 import com.dacs.attendance.domain.nextToSend
 import io.github.jan.supabase.auth.auth
 import com.dacs.attendance.domain.outcomeFor
+import com.dacs.attendance.widget.WidgetRefresher
+import com.dacs.attendance.widget.refreshQuietly
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import java.io.File
@@ -48,10 +50,26 @@ class SubmissionWorker @AssistedInject constructor(
     private val database: AttendanceDatabase,
     private val remote: SupabaseAttendanceRepository,
     private val photos: PhotoStore,
-    private val client: io.github.jan.supabase.SupabaseClient
+    private val client: io.github.jan.supabase.SupabaseClient,
+    private val widgets: WidgetRefresher
 ) : CoroutineWorker(context, params) {
 
-    override suspend fun doWork(): Result {
+    /**
+     * One drain, then the widget. The queue is what "Not sent yet" on the
+     * home screen reports, and this is the only place it empties.
+     *
+     * Also the periodic sweeper's run, so a phone with signal re-reads the
+     * widget at least every 15 minutes -- which is what rolls a finished
+     * day over after Manila midnight. In `finally`, so a retry or an early
+     * return still leaves the widget telling the truth about the queue.
+     */
+    override suspend fun doWork(): Result = try {
+        drain()
+    } finally {
+        widgets.refreshQuietly()
+    }
+
+    private suspend fun drain(): Result {
         // Whose session is this? With none, nothing may be sent: the RPC
         // would file the record against whoever signs in next.
         val workerId = client.auth.currentUserOrNull()?.id.orEmpty()
