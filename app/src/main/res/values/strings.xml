@@ -247,6 +247,13 @@
     <string name="att_location_denied">Attendance needs your location. Turn on Location permission for this app in Settings.</string>
     <string name="att_location_denied_tl">Kailangan ng lokasyon mo para makapagtala. I-on ang Location permission para sa app na ito sa Settings.</string>
 
+    <!-- Location switched off on the phone (2026-09-15). Deliberately
+         different wording from att_location_denied: that one is an app
+         permission, this one is the phone-wide switch, and sending a
+         worker to the wrong settings screen is how a fixable refusal
+         turns into "the app is broken". -->
+    <string name="att_location_off">Turn on Location on your phone to record attendance. Swipe down and tap Location, then try again.</string>
+    <string name="att_location_off_tl">I-on ang Location sa telepono mo para makapagtala. Mag-swipe pababa, i-tap ang Location, tapos subukan ulit.</string>
     <string name="att_geofence_missing">This project has no location set yet. Tell your admin — it cannot be fixed from the app.</string>
     <string name="att_geofence_missing_tl">Wala pang nakatakdang lokasyon ang proyektong ito. Sabihan ang admin — hindi ito maaayos mula sa app.</string>
 

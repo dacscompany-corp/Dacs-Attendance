@@ -58,6 +58,18 @@ enum class AttendanceFailure {
      */
     LocationPermissionDenied,
 
+    /**
+     * Location is switched off on the phone itself, which is a different
+     * thing from the app's permission and is fixed on a different
+     * screen. Refused rather than flagged: a phone that CAN locate and
+     * simply cannot get a fix still records, but a switch somebody
+     * turned off is a decision, not weather.
+     *
+     * Raised by the device at the shutter, never by the server -- the
+     * flow stops before anything is submitted.
+     */
+    LocationDisabled,
+
     /** No fence configured for this project, once fences are required. */
     ProjectGeofenceUnavailable,
 
@@ -101,6 +113,9 @@ enum class AttendanceFailure {
             "OUTSIDE_RADIUS" to OutsideRadius,
             "MOCK_LOCATION" to MockLocation,
             "PERMISSION_DENIED" to LocationPermissionDenied,
+            // No server raises this today; the device does. Mapped anyway
+            // so that if one ever learns to, the app already reads it.
+            "LOCATION_DISABLED" to LocationDisabled,
             "PROJECT_GEOFENCE_UNAVAILABLE" to ProjectGeofenceUnavailable
         )
     }

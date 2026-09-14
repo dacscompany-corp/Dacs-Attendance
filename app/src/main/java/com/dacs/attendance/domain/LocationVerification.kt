@@ -44,6 +44,30 @@ enum class LocationStatus {
     /** The worker declined to be located. A choice, not a limitation. */
     PermissionDenied,
 
+    /**
+     * Location is switched OFF on the phone itself.
+     *
+     * Split out from [LocationUnavailable] after a Time In was recorded
+     * at Sulit Residence from outside its 500 m fence on 2026-09-15. The
+     * record was honest -- no coordinates, no accuracy -- and nothing
+     * refused it, because "no fix" is deliberately flagged rather than
+     * refused, so that a cheap handset under scaffolding can still
+     * record a day.
+     *
+     * That protection is right, and it stays. But a phone with location
+     * switched off arrived as exactly the same "no fix", which made
+     * turning it off a guaranteed pass that looked identical to bad
+     * luck. THIS is the distinction: a switch somebody flipped, not
+     * weather. Refused, like [PermissionDenied], and for the same
+     * reason.
+     *
+     * NEVER SENT TO THE SERVER, because it never gets that far: the flow
+     * refuses it at the shutter, so nothing is submitted and nothing is
+     * queued. The wire value exists for the admin screens' vocabulary
+     * and for tests, not for a column.
+     */
+    LocationDisabled,
+
     /** No fence configured for this project, or it is switched off. */
     ProjectGeofenceUnavailable;
 
@@ -56,6 +80,7 @@ enum class LocationStatus {
             LocationUnavailable -> "location_unavailable"
             MockLocation -> "mock_location"
             PermissionDenied -> "permission_denied"
+            LocationDisabled -> "location_disabled"
             ProjectGeofenceUnavailable -> "project_geofence_unavailable"
         }
 }
@@ -89,7 +114,13 @@ data class DeviceFix(
      */
     val isMock: Boolean = false,
     /** The worker declined the permission, as distinct from getting no fix. */
-    val permissionDenied: Boolean = false
+    val permissionDenied: Boolean = false,
+    /**
+     * Location is switched off on the device, as distinct from being on
+     * but unable to get a fix. Only the handset can tell these apart --
+     * both otherwise arrive as null coordinates.
+     */
+    val locationDisabled: Boolean = false
 )
 
 data class LocationCheck(
@@ -146,6 +177,10 @@ fun checkLocation(
 
     val status = when {
         fix.permissionDenied -> LocationStatus.PermissionDenied
+        // BEFORE the null-coordinate branch, which is the whole point: a
+        // phone with location off also has no coordinates, and until now
+        // that could only be read as LocationUnavailable.
+        fix.locationDisabled -> LocationStatus.LocationDisabled
         fix.isMock -> LocationStatus.MockLocation
         fix.latitude == null || fix.longitude == null -> LocationStatus.LocationUnavailable
         fix.accuracyMetres == null || fix.accuracyMetres > minAccuracyMetres ->
@@ -180,6 +215,9 @@ fun locationRefuses(status: LocationStatus, requireGeofence: Boolean): Boolean =
     when (status) {
         LocationStatus.MockLocation,
         LocationStatus.PermissionDenied,
+        // Switching location off is a choice, exactly like refusing the
+        // permission -- and unlike a fix the phone could not get.
+        LocationStatus.LocationDisabled,
         LocationStatus.OutsideRadius -> true
 
         LocationStatus.ProjectGeofenceUnavailable -> requireGeofence

@@ -505,4 +505,31 @@ class TimeFlowViewModelTest {
         assertNull(vm.uiState.value.failure)
         assertEquals(1, attendance.requests.size)
     }
+
+    @Test
+    fun `location switched off is refused at the shutter, not recorded as no fix`() = runTest {
+        // The bypass this rule exists for, reported from the field on
+        // 2026-09-15: grant both permissions, switch location off, and
+        // stand anywhere. The phone then has no coordinates, which used
+        // to be indistinguishable from the cheap-handset case above --
+        // and that case is deliberately recorded rather than refused, so
+        // switching location off was a guaranteed pass.
+        //
+        // Sits DIRECTLY beneath `no fix at all still records the day` on
+        // purpose: the two fixes differ only by the flag, and the
+        // opposite outcomes below are the whole distinction. A change
+        // that makes this one pass by weakening that one has broken the
+        // protection rather than kept it.
+        val attendance = FakeAttendance(mutableListOf(Result.success(savedRecord)))
+        val vm = submitWith(
+            FakeLocation(com.dacs.attendance.domain.DeviceFix(locationDisabled = true)),
+            attendance
+        )
+
+        assertEquals(AttendanceFailure.LocationDisabled, vm.uiState.value.failure)
+        assertFalse(vm.uiState.value.submitting)
+        // Not merely refused on screen: nothing may be stored, because a
+        // queued row would drain later and land as an unverified day.
+        assertTrue("nothing may be submitted or queued", attendance.requests.isEmpty())
+    }
 }

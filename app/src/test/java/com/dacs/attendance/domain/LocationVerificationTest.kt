@@ -40,6 +40,52 @@ class LocationVerificationTest {
     }
 
     @Test
+    fun `location switched off is refused, not merely treated as no fix`() {
+        // The 2026-09-15 defect: a Time In was recorded at Sulit
+        // Residence from outside its 500 m fence because the phone
+        // reported no coordinates, and no coordinates is deliberately
+        // flagged rather than refused. A switched-off phone reported the
+        // same thing as one that simply could not see the sky.
+        val check = checkLocation(
+            DeviceFix(locationDisabled = true), fence, minAccuracyMetres = 50.0
+        )
+
+        assertEquals(LocationStatus.LocationDisabled, check.status)
+        assertTrue(
+            "switching location off must not be recordable",
+            locationRefuses(check.status, requireGeofence = false)
+        )
+        assertEquals("location_disabled", check.status.wire)
+    }
+
+    @Test
+    fun `a phone that is ON but cannot get a fix is still recorded`() {
+        // The other half of the same rule, and the reason the split had
+        // to exist at all: this worker keeps their day, and their bonus.
+        val check = checkLocation(DeviceFix(), fence, minAccuracyMetres = 50.0)
+
+        assertEquals(LocationStatus.LocationUnavailable, check.status)
+        assertFalse(
+            "a weak or absent fix is never an accusation",
+            locationRefuses(check.status, requireGeofence = false)
+        )
+    }
+
+    @Test
+    fun `a denied permission and a switched-off phone stay separate`() {
+        // They are fixed on two different settings screens. Collapsing
+        // them sends a worker somewhere that cannot help.
+        assertEquals(
+            LocationStatus.PermissionDenied,
+            checkLocation(DeviceFix(permissionDenied = true), fence, 50.0).status
+        )
+        assertEquals(
+            LocationStatus.LocationDisabled,
+            checkLocation(DeviceFix(locationDisabled = true), fence, 50.0).status
+        )
+    }
+
+    @Test
     fun `standing on the site verifies`() {
         val check = checkLocation(fixAt(14.5995, 120.9842), fence, minAccuracyMetres = 50.0)
 

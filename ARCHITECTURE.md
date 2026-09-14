@@ -229,6 +229,15 @@ Key rules encoded there: `daysWorked` counts rows that **exist**; hours sum only
 
 Refusals come back as **stable codes**, mapped in the app by `AttendanceFailure`: `ALREADY_TIMED_IN`, `NOT_TIMED_IN`, `ALREADY_COMPLETE`, `TIMEOUT_BEFORE_TIMEIN`, `DEVICE_CLOCK_WRONG` (captured more than 2 minutes ahead of the server), `SHIFT_TOO_LONG`, `PROJECT_UNAVAILABLE`, `NO_OWNER_ASSIGNED`, `ACCOUNT_INACTIVE`, `NOT_A_WORKER`. An unmapped code lands on `Unexpected` and fails the test that enumerates the surface — which is the point.
 
+**`LocationDisabled` is raised by the DEVICE, never by the server.** Location switched off on the
+phone used to arrive as the same `location_unavailable` as a phone that simply could not hold a
+fix — and since no fix is deliberately flagged rather than refused, switching Location off was a
+guaranteed pass. Found in production on 2026-09-15, when a Time In was recorded at Sulit Residence
+from outside its 500 m fence. `LocationProvider` now checks `LocationManagerCompat.isLocationEnabled`
+before asking for a fix, and the flow refuses at the shutter, so nothing is submitted and nothing is
+queued. A phone that is ON but cannot get a fix is still recorded and flagged — that protection is
+the reason the split had to exist rather than a tightening of the rule.
+
 ### 4.4 Storage
 
 Private bucket `attendance`. Object path is fixed by 0050 §7:

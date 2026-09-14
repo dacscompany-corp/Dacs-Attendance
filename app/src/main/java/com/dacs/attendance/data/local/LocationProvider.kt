@@ -4,9 +4,11 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Location
+import android.location.LocationManager
 import android.os.Build
 import android.os.SystemClock
 import androidx.core.content.ContextCompat
+import androidx.core.location.LocationManagerCompat
 import com.dacs.attendance.domain.DeviceFix
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
@@ -88,6 +90,21 @@ class LocationProvider @Inject constructor(
         // server trusts it for exactly this.
         if (!hasPermission()) return DeviceFix(permissionDenied = true)
 
+        // Location switched off at the OS level, checked BEFORE asking
+        // for a fix.
+        //
+        // Until this existed, a phone with the toggle off simply timed
+        // out after 15 seconds and reported "no fix", which is flagged
+        // and never refused -- so switching location off was a reliable
+        // way to record attendance from anywhere. It found its way into
+        // production on 2026-09-15.
+        //
+        // This does NOT weaken the protection that rule exists for. A
+        // phone with location ON that cannot hold a fix still records
+        // and is still flagged. Only the switch is refused, because only
+        // the switch is somebody's decision.
+        if (!isLocationEnabled()) return DeviceFix(locationDisabled = true)
+
         val location = try {
             withTimeoutOrNull(timeoutMs) { awaitCurrentLocation() }
         } catch (e: SecurityException) {
@@ -114,6 +131,24 @@ class LocationProvider @Inject constructor(
             accuracyMetres = if (location.hasAccuracy()) location.accuracy.toDouble() else null,
             isMock = location.isMockCompat()
         )
+    }
+
+    /**
+     * Is the phone's location setting on at all?
+     *
+     * LocationManagerCompat rather than the raw API: `isLocationEnabled`
+     * only exists from API 28, and the compat helper falls back to the
+     * providers on older handsets -- which are exactly the handsets this
+     * app is built for.
+     *
+     * A missing LocationManager answers TRUE, not false. Being unable to
+     * ask must not become an accusation: the flow then continues to the
+     * ordinary fix attempt, which flags rather than refuses.
+     */
+    private fun isLocationEnabled(): Boolean {
+        val manager = ContextCompat.getSystemService(context, LocationManager::class.java)
+            ?: return true
+        return LocationManagerCompat.isLocationEnabled(manager)
     }
 
     private suspend fun awaitCurrentLocation(): Location? =

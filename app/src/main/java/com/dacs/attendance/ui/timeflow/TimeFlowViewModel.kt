@@ -264,6 +264,7 @@ class TimeFlowViewModel @Inject constructor(
 private fun LocationStatus.toFailure(): AttendanceFailure = when (this) {
     LocationStatus.MockLocation -> AttendanceFailure.MockLocation
     LocationStatus.PermissionDenied -> AttendanceFailure.LocationPermissionDenied
+    LocationStatus.LocationDisabled -> AttendanceFailure.LocationDisabled
     LocationStatus.OutsideRadius -> AttendanceFailure.OutsideRadius
     LocationStatus.ProjectGeofenceUnavailable -> AttendanceFailure.ProjectGeofenceUnavailable
     // Never refused, so never mapped to a failure a worker has to read.

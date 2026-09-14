@@ -95,6 +95,12 @@ fun outcomeFor(failure: AttendanceFailure): QueueOutcome = when (failure) {
     AttendanceFailure.OutsideRadius,
     AttendanceFailure.MockLocation,
     AttendanceFailure.LocationPermissionDenied,
+    // Cannot legitimately reach the queue -- the flow refuses it at the
+    // shutter, so nothing is ever stored to send. Listed because the
+    // `when` is exhaustive and because the honest answer, if one ever did
+    // arrive, is the same as the two above: the coordinates are frozen,
+    // so every retry earns the identical refusal.
+    AttendanceFailure.LocationDisabled,
 
     AttendanceFailure.DeviceClockWrong,
     AttendanceFailure.TimeOutBeforeTimeIn,

@@ -67,16 +67,27 @@ fun AttendanceFailureNotice(
         // request -- the only route back is the system settings page.
         // Without this the notice is advice a worker cannot act on, which
         // is the same as no notice at all.
-        if (failure == AttendanceFailure.LocationPermissionDenied) {
+        //
+        // LocationDisabled goes to a DIFFERENT screen, and that is the
+        // whole reason it is a separate failure: the app's permission
+        // page says nothing about the phone-wide switch, and sending a
+        // worker there to fix this would strand them on a screen where
+        // everything already looks correct.
+        if (failure == AttendanceFailure.LocationPermissionDenied ||
+            failure == AttendanceFailure.LocationDisabled
+        ) {
             val context = LocalContext.current
+            val settings = if (failure == AttendanceFailure.LocationDisabled) {
+                Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
+            } else {
+                Intent(
+                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    Uri.fromParts("package", context.packageName, null)
+                )
+            }
             TextButton(
                 onClick = {
-                    context.startActivity(
-                        Intent(
-                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                            Uri.fromParts("package", context.packageName, null)
-                        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    )
+                    context.startActivity(settings.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                 }
             ) {
                 Text(
@@ -111,7 +122,12 @@ private val AttendanceFailure.worthRetrying: Boolean
         // A fix can improve where a worker stands still: walking a few
         // metres into the open is exactly the fix for both of these.
         AttendanceFailure.OutsideRadius,
-        AttendanceFailure.ProjectGeofenceUnavailable -> true
+        AttendanceFailure.ProjectGeofenceUnavailable,
+        // Unlike the permission, the phone-wide switch is two taps away
+        // in the shade and needs no settings trip and no re-prompt. A
+        // worker who turns it on wants to carry straight on, and the
+        // retry then genuinely succeeds.
+        AttendanceFailure.LocationDisabled -> true
         // Deliberately NOT LocationPermissionDenied: retrying without
         // changing the setting fails identically, and offering the button
         // teaches the worker the app is broken rather than that the
@@ -160,6 +176,9 @@ private fun AttendanceFailure.copy(): Pair<String, String> = when (this) {
     AttendanceFailure.LocationPermissionDenied ->
         stringResource(R.string.att_location_denied) to
             stringResource(R.string.att_location_denied_tl)
+    AttendanceFailure.LocationDisabled ->
+        stringResource(R.string.att_location_off) to
+            stringResource(R.string.att_location_off_tl)
     AttendanceFailure.ProjectGeofenceUnavailable ->
         stringResource(R.string.att_geofence_missing) to
             stringResource(R.string.att_geofence_missing_tl)
