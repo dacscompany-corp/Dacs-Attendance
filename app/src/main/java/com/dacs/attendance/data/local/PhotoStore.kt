@@ -12,6 +12,7 @@ import android.graphics.Typeface
 import androidx.exifinterface.media.ExifInterface
 import com.dacs.attendance.domain.fitTextSize
 import com.dacs.attendance.domain.photoOverlayCaption
+import com.dacs.attendance.domain.photoSampleSize
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.time.Instant
@@ -90,13 +91,26 @@ class PhotoStore @Inject constructor(
      * the three rotations files that photo sideways and un-mirrored.
      */
     private fun decodeUpright(source: File): Bitmap {
+        // Measure first, decode second. Never decode at full resolution:
+        // a 13 MP selfie is 52 MB as ARGB_8888, and the flip below
+        // allocates a second copy before this one is released -- past the
+        // whole heap on the phones this app is for. Sampling during the
+        // decode means the full-size bitmap is never allocated at all.
+        //
+        // The sample keeps the result at or above MAX_EDGE_PX, so
+        // scaleToBudget still lands on exactly the same dimensions the
+        // filed photo has always had.
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(source.absolutePath, bounds)
+
         // Mutable, because when no transform is needed this is the bitmap
-        // the caption is drawn on. A 2 MP front camera -- common on the
-        // phones in the field -- is inside the size budget, so nothing
-        // else copies it first, and Canvas refuses an immutable bitmap.
+        // the caption is drawn on, and Canvas refuses an immutable one.
         val bitmap = BitmapFactory.decodeFile(
             source.absolutePath,
-            BitmapFactory.Options().apply { inMutable = true }
+            BitmapFactory.Options().apply {
+                inMutable = true
+                inSampleSize = photoSampleSize(bounds.outWidth, bounds.outHeight, MAX_EDGE_PX)
+            }
         ) ?: error("Could not decode captured photo")
 
         val exif = ExifInterface(source.absolutePath)

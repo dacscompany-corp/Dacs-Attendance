@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The live "ON SITE 04:13:32" in the card's pill.
+
+  A system Chronometer rather than text the app redraws: Glance only
+  repaints when something pushes a refresh, so a counter made of Text
+  would sit frozen until the next WorkManager tick. The platform ticks
+  this one for us, with no wakeups charged to the app.
+-->
+<Chronometer xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_elapsed"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:includeFontPadding="false"
+    android:letterSpacing="0.08"
+    android:textColor="#FFFFFF"
+    android:textSize="11sp"
+    android:textStyle="bold" />

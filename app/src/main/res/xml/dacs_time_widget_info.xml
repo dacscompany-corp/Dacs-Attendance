@@ -1,17 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  3x1 by default, resizable. updatePeriodMillis is only the BACKSTOP: the
+  4x3 by default, resizable. The size is the design's own proportion
+  (332x185dp, about 1.79:1) because the card's type is scaled from its
+  height, and a wider-but-shorter cell renders the title small no matter
+  what the scale does.
+
+  Shrinking it degrades in two steps rather than clipping: under 138dp the
+  subtitle drops so the title keeps its size, and under 100dp the whole
+  card falls back to a single row. See DacsTimeWidget.
+
+  updatePeriodMillis is only the BACKSTOP: the
   app pushes a refresh on every write (see WidgetRefresher). This is what
   rolls "Done for today" over to "Not timed in" after Manila midnight on a
   phone with no signal, when nothing else runs.
 -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
-    android:minWidth="180dp"
-    android:minHeight="40dp"
+    android:minWidth="250dp"
+    android:minHeight="150dp"
     android:minResizeWidth="180dp"
-    android:minResizeHeight="40dp"
-    android:targetCellWidth="3"
-    android:targetCellHeight="1"
+    android:minResizeHeight="48dp"
+    android:targetCellWidth="4"
+    android:targetCellHeight="3"
     android:resizeMode="horizontal|vertical"
     android:updatePeriodMillis="1800000"
     android:initialLayout="@layout/glance_default_loading_layout"
