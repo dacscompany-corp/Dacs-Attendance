@@ -1,3 +1,6 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -5,6 +8,29 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
+}
+
+
+/**
+ * The upload key, when this machine holds it.
+ *
+ * Kept in keystore.properties -- gitignored, pointing at a .jks OUTSIDE
+ * the repo -- because an upload key committed to git is an incident, not
+ * a convenience: anyone with clone access could then ship an update that
+ * every installed phone accepts as genuine.
+ *
+ * ABSENT IS A SUPPORTED STATE, not an error. A fresh clone, a CI runner
+ * or another developer has no keystore, and must still be able to build,
+ * test and assemble a debug APK. Only the signing of a release is lost,
+ * and `release` below falls back to an UNSIGNED build rather than
+ * failing -- loudly unusable, instead of quietly signed with the wrong
+ * key.
+ */
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.exists()) {
+        FileInputStream(keystorePropertiesFile).use { load(it) }
+    }
 }
 
 android {
@@ -58,12 +84,29 @@ android {
         // Do not add values-fil/; see BilingualText in the UI layer.
     }
 
+    signingConfigs {
+        // Created only when the properties file is present -- see above.
+        if (keystorePropertiesFile.exists()) {
+            create("release") {
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
         }
         release {
+            // findByName, not getByName: null on a machine without the
+            // keystore, which leaves the build UNSIGNED instead of
+            // failing. See keystoreProperties above.
+            signingConfig = signingConfigs.findByName("release")
+
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
