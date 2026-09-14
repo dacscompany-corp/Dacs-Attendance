@@ -114,12 +114,13 @@ private fun WidgetContent(context: Context, state: WidgetState) {
     if (size.height < FullCardMinHeight) {
         CompactCard(context, card, tap)
     } else {
-        FullCard(context, card, tap, typeScale(size), size.height >= SubtitleMinHeight)
+        val title = context.getString(card.title)
+        FullCard(context, card, title, tap, typeScale(size, title.length), size.height >= SubtitleMinHeight)
     }
 }
 
 /** The card's type sizes, in sp, for a cell of this size. */
-private data class CardType(
+internal data class CardType(
     val title: TextUnit,
     val subtitle: TextUnit,
     val pill: TextUnit,
@@ -136,14 +137,21 @@ private data class CardType(
  * Bounded by width as well as height: Glance text does not shrink to fit,
  * so the longest title the card can show has to survive on one line.
  */
-private fun typeScale(size: DpSize): CardType {
+internal fun typeScale(size: DpSize, titleLength: Int): CardType {
     val height = size.height.value
     // Above the design's own 0.18: a small widget has to stay legible at
     // arm's length in sunlight, so type grows faster than the card does.
     // The cap keeps a tall card from turning into a billboard.
     val byHeight = if (height < SubtitleMinHeight.value) height * 0.30f else height * 0.24f
-    // Roughly six title characters' worth of headroom inside the padding.
-    val byWidth = (size.width.value - 32f) / 6f
+
+    // Bounded by the title ACTUALLY being drawn, not an assumed length.
+    // Glance text does not shrink to fit, and maxLines = 1 ellipsises: a
+    // fixed guess of six characters turned "DACs Attendance" into
+    // "DACs Atten..." on a 250x110dp card. 0.58em per character is a
+    // little generous for bold sans, which errs toward smaller and
+    // therefore fits.
+    val perChar = titleLength.coerceAtLeast(1) * 0.58f
+    val byWidth = (size.width.value - 32f) / perChar
     val title = min(byHeight, byWidth).coerceIn(18f, 44f)
 
     return CardType(
@@ -160,6 +168,7 @@ private fun typeScale(size: DpSize): CardType {
 private fun FullCard(
     context: Context,
     card: WidgetCard,
+    title: String,
     tap: Action,
     type: CardType,
     showSubtitle: Boolean
@@ -201,7 +210,7 @@ private fun FullCard(
 
         Spacer(GlanceModifier.height(type.gap))
         Text(
-            text = context.getString(card.title),
+            text = title,
             style = TextStyle(
                 color = WidgetColors.onCard,
                 fontSize = type.title,

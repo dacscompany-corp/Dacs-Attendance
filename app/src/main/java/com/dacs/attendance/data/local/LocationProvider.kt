@@ -124,6 +124,14 @@ class LocationProvider @Inject constructor(
                     .getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cancel.token)
                     .addOnSuccessListener { cont.resume(it) }
                     .addOnFailureListener { cont.resume(null) }
+            } catch (e: SecurityException) {
+                // Caught here as well as in currentFix(): the permission
+                // can be revoked between that check and this call, and the
+                // throw lands HERE, synchronously. Named rather than left
+                // to the branch below so the guarantee is visible at the
+                // call site -- and so lint can see it, which it cannot do
+                // through a catch of Exception in a different method.
+                cont.resume(null)
             } catch (e: Exception) {
                 cont.resume(null)
             }
