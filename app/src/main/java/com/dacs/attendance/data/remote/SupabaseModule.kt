@@ -106,8 +106,28 @@ object SupabaseModule {
  *    known source of hard failures. A worker who cannot log in because
  *    their keystore is broken is a far worse outcome than a refresh
  *    token sitting in app-private storage on a non-rooted device. So:
- *    try encrypted, retry once with a clean store in case of corruption,
+ *    try encrypted, retry, clear only if the store itself looks broken,
  *    and only then degrade -- loudly.
+ *
+ * ── WHY THE PLAIN RETRY COMES BEFORE THE DELETE (fixed after reports of
+ *    workers being signed out without signing out).
+ *
+ *    This store is where the REFRESH TOKEN lives, so deleting it is a
+ *    sign-out -- a silent one the worker never asked for, on a phone that
+ *    still shows them as logged in until the next launch.
+ *
+ *    It used to delete on the first exception of any kind. But the
+ *    failures these phones actually produce are mostly TRANSIENT: the
+ *    AndroidKeyStore is momentarily unavailable, busy, or wedged just
+ *    after boot -- exactly when the app is opened. Treating that as a
+ *    corrupt store destroyed a perfectly good session over a hiccup that
+ *    a second attempt would have survived.
+ *
+ *    So the second attempt is made on the EXISTING store. Only if that
+ *    fails too do we accept the store is unreadable and clear it. A
+ *    genuinely corrupt store fails both attempts and is still recovered;
+ *    a transient keystore failure now costs one retry instead of
+ *    everyone's session.
  */
 @Suppress("DEPRECATION")
 private fun sessionPreferences(context: Context): SharedPreferences {
@@ -122,13 +142,22 @@ private fun sessionPreferences(context: Context): SharedPreferences {
     return try {
         encrypted()
     } catch (first: Exception) {
-        Log.w(TAG, "Encrypted session store unreadable, clearing and retrying", first)
-        context.deleteSharedPreferences(SESSION_PREFS)
+        // Nothing destroyed yet. The session is still on disk.
+        Log.w(TAG, "Encrypted session store failed to open, retrying before clearing it", first)
         try {
             encrypted()
         } catch (second: Exception) {
-            Log.e(TAG, "Keystore unusable on this device -- session stored unencrypted", second)
-            context.getSharedPreferences(SESSION_PREFS, Context.MODE_PRIVATE)
+            // Twice in a row: treat the store as corrupt rather than the
+            // keystore as busy. This is the branch that costs the worker
+            // their session, so it is the last resort, not the first.
+            Log.w(TAG, "Encrypted session store unreadable twice, clearing it", second)
+            context.deleteSharedPreferences(SESSION_PREFS)
+            try {
+                encrypted()
+            } catch (third: Exception) {
+                Log.e(TAG, "Keystore unusable on this device -- session stored unencrypted", third)
+                context.getSharedPreferences(SESSION_PREFS, Context.MODE_PRIVATE)
+            }
         }
     }
 }

@@ -5,9 +5,12 @@ import com.dacs.attendance.data.local.WorkerCache
 import com.dacs.attendance.data.remote.SignInApi
 import com.dacs.attendance.data.remote.SignInOutcome
 import com.dacs.attendance.domain.LoginFailure
+import com.dacs.attendance.domain.SessionGate
+import com.dacs.attendance.domain.SessionPresence
 import com.dacs.attendance.domain.WorkerProfile
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.auth.user.UserInfo
 import io.github.jan.supabase.auth.user.UserSession
 import io.github.jan.supabase.postgrest.postgrest
@@ -111,11 +114,12 @@ class SupabaseAuthRepository @Inject constructor(
         }
 
     /**
-     * ── "NO SESSION" AND "NO SIGNAL" ARE DIFFERENT ANSWERS.
+     * ── "NO SESSION", "NO SIGNAL" AND "NOT ASKED AS ANYONE" ARE THREE
+     *    DIFFERENT ANSWERS.
      *
      *    This used to wrap the whole thing in runCatching and return null
-     *    on any failure, which collapsed the two into one. Offline, the
-     *    profile read threw, null came back, and the app concluded the
+     *    on any failure, which collapsed the first two into one. Offline,
+     *    the profile read threw, null came back, and the app concluded the
      *    worker was signed out -- dropping them on a login screen they
      *    could not complete without signal either.
      *
@@ -124,9 +128,13 @@ class SupabaseAuthRepository @Inject constructor(
      *    and every one of them exists for the morning it locked people
      *    out of.
      *
-     *    So the session is read first, on its own. Only a genuinely
-     *    absent session means signed out; a session that cannot be
-     *    *described* falls back to the last profile this device saw.
+     *    Separating those two left a THIRD answer misread, and it is the
+     *    one that signed workers out of an app they never left. See
+     *    [SessionGate]: a read made with no session does not fail, it
+     *    succeeds as the anon role and returns nothing, and "nothing" was
+     *    being believed. So the session is now settled BEFORE anything is
+     *    read, and the read only happens when there is a token to make it
+     *    with.
      */
     override suspend fun currentWorker(): WorkerProfile? {
         // The Auth plugin restores the stored session asynchronously.
@@ -134,30 +142,35 @@ class SupabaseAuthRepository @Inject constructor(
         // is not -- the one thing session persistence exists to prevent.
         client.auth.awaitInitialization()
 
-        // ── WHY THIS DOES NOT TRUST currentUserOrNull() ALONE.
-        //
-        //    Verified on a real device: reopening the app WITH signal
-        //    restores the session and lands on the dashboard, and
-        //    reopening WITHOUT signal lands on the login screen. So the
-        //    session persists correctly -- the auth client simply reports
-        //    nobody when it cannot reach the network to validate or
-        //    refresh what it loaded.
-        //
-        //    That is a fact about the network. Reading it as "signed out"
-        //    is what locked workers out of the entire offline layer.
-        //
-        //    So: the client's answer wins when it has one, and our own
-        //    record of the sign-in we witnessed stands in when it does
-        //    not. A worker who actually signed out has neither.
-        // Measured on a real device, offline: the session IS restored and
-        // this returns the worker. The fallback below is defence for the
-        // case where it does not -- it was not what fixed the offline
-        // lockout, and assuming it was cost three wrong attempts.
-        val userId = client.auth.currentUserOrNull()?.id
-            ?: workerCache.lastSignedInId
-            ?: return null
+        val lastKnownId = workerCache.lastSignedInId
+        val decision = SessionGate.decide(
+            presence = sessionPresence(),
+            hasLastKnownWorker = lastKnownId != null
+        )
 
-        return runCatchingExceptCancellation { loadWorkerProfile(userId) }.fold(
+        return when (decision) {
+            // Confirmed session: the read below carries this worker's own
+            // token, so PostgREST answers as them and the answer -- row,
+            // or no row -- is the truth.
+            SessionGate.Decision.AskTheServer ->
+                resolveFromServer(client.auth.currentUserOrNull()?.id ?: lastKnownId ?: return null)
+
+            // Measured on a real device, offline: the session IS restored
+            // and the branch above returns the worker. This one is for
+            // when the client cannot describe what it loaded -- no
+            // signal, or a refresh that failed and has not retried yet.
+            SessionGate.Decision.UseLastKnown -> lastKnownId?.let(workerCache::recall)
+
+            SessionGate.Decision.SignedOut -> null
+        }
+    }
+
+    /**
+     * The worker as the server has them, falling back to the last profile
+     * this device saw if the read cannot be made.
+     */
+    private suspend fun resolveFromServer(userId: String): WorkerProfile? =
+        runCatchingExceptCancellation { loadWorkerProfile(userId) }.fold(
             onSuccess = { profile ->
                 // The server answered. Its answer wins, and is kept for
                 // the next launch that has no signal.
@@ -170,18 +183,51 @@ class SupabaseAuthRepository @Inject constructor(
                 // "signed out" -- locking a worker out of the queue, the
                 // mirrors and the cached picker, all of which exist for
                 // precisely that morning.
+                //
+                // It also catches an access token the server rejects
+                // (401) while the client still believes in it -- a phone
+                // with a badly wrong clock. Same treatment: that is not
+                // the worker signing out.
                 workerCache.recall(userId)
             }
         )
-    }
+
+    /**
+     * What the auth client can currently say about the stored session.
+     *
+     * [SessionStatus.RefreshFailure] is the state this whole mechanism
+     * turns on: the client HAS a session, a refresh of it failed, and it
+     * waits ten seconds before trying again. Throughout that window
+     * `currentUserOrNull()` is null while the refresh token sits safely on
+     * disk. It is not a sign-out and must never be read as one.
+     */
+    private fun sessionPresence(): SessionPresence =
+        when (client.auth.sessionStatus.value) {
+            is SessionStatus.Authenticated -> SessionPresence.Confirmed
+            is SessionStatus.RefreshFailure -> SessionPresence.Unverifiable
+            // awaitInitialization() above means this should not be seen.
+            // If it ever is, the safe reading is "cannot tell yet", never
+            // "signed out".
+            is SessionStatus.Initializing -> SessionPresence.Unverifiable
+            is SessionStatus.NotAuthenticated -> SessionPresence.Absent
+        }
 
     /**
      * Used on launch, when a session has been restored from encrypted
      * storage. Reads the worker's own profiles row under their own RLS --
      * no service_role involved -- so an account deactivated since the last
      * launch comes back as 'inactive' rather than silently staying in.
+     *
+     * REFUSES TO RUN WITHOUT A SESSION, like every other read that is
+     * scoped to one worker (see RewardRepository.weekProgress). Without
+     * this the Supabase client quietly substitutes the anon key, RLS on
+     * `profiles` (`auth.uid() IS NOT NULL`) returns an empty result rather
+     * than an error, and an unauthenticated read looks exactly like a
+     * worker whose row does not exist.
      */
     private suspend fun loadWorkerProfile(userId: String): WorkerProfile? {
+        client.requireSession()
+
         return client.postgrest
             .from("profiles")
             .select(Columns.raw(ProfileRow.COLUMNS)) {

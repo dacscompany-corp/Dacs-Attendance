@@ -21,8 +21,25 @@ class SupabaseTermsRepository @Inject constructor(
     private val client: SupabaseClient
 ) : TermsRepository {
 
+    /**
+     * REFUSES TO RUN WITHOUT A SESSION, and the refusal is load-bearing.
+     *
+     * The acceptance rows are readable only by the worker they belong to
+     * (`worker_id = auth.uid()`). Ask without a token and the Supabase
+     * client substitutes the anon key, RLS returns no rows, and this
+     * reports a successful "they have never accepted anything" -- which
+     * [StartupGate] can only read as MustAccept, sending a worker who
+     * accepted months ago back to the Terms screen. Offline that is a dead
+     * end, because accepting again cannot be written anywhere.
+     *
+     * A failure, by contrast, is exactly what StartupGate is built for: it
+     * falls back to the acceptance this device recorded. So not being able
+     * to ask must present itself as a failure, never as an answer.
+     */
     override suspend fun acceptedVersions(workerId: String): Result<Set<String>> =
         runCatchingExceptCancellation {
+            client.requireSession()
+
             client.postgrest
                 .from("attendance_terms_acceptances")
                 .select(Columns.raw("terms_version")) {
@@ -35,6 +52,10 @@ class SupabaseTermsRepository @Inject constructor(
 
     override suspend fun acceptedAt(workerId: String, version: String): Result<Instant?> =
         runCatchingExceptCancellation {
+            // Same reason as above, milder symptom: the Profile screen
+            // would show no acceptance date for a worker who has one.
+            client.requireSession()
+
             client.postgrest
                 .from("attendance_terms_acceptances")
                 .select(Columns.raw("accepted_at")) {

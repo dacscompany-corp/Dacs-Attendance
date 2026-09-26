@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(awk -F'\"' '{t+=$2; s+=$4; f+=$6; e+=$8} END {print \"tests=\"t, \"skipped=\"s, \"failures=\"f, \"errors=\"e}')"
+    ]
+  }
+}
