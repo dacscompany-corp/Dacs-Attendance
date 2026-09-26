@@ -44,6 +44,8 @@ class AttendanceFailureTest {
             "ACCOUNT_INACTIVE" to AttendanceFailure.AccountInactive,
             "NOT_A_WORKER" to AttendanceFailure.NotAWorker,
             "AUTH_REQUIRED" to AttendanceFailure.SessionExpired,
+            // 0077
+            "APP_UPDATE_REQUIRED" to AttendanceFailure.AppUpdateRequired,
             "EVENT_ID_CONFLICT" to AttendanceFailure.Unexpected,
             "EVENT_ID_REQUIRED" to AttendanceFailure.Unexpected
         )

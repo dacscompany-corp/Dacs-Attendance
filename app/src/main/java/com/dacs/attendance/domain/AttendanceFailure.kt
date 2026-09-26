@@ -73,6 +73,12 @@ enum class AttendanceFailure {
     /** No fence configured for this project, once fences are required. */
     ProjectGeofenceUnavailable,
 
+    /**
+     * This build is older than the office's minimum (0077). The worker
+     * must install the new APK; nothing else they do will help.
+     */
+    AppUpdateRequired,
+
     /** The session expired mid-flow; the worker must log in again. */
     SessionExpired,
 
@@ -116,7 +122,8 @@ enum class AttendanceFailure {
             // No server raises this today; the device does. Mapped anyway
             // so that if one ever learns to, the app already reads it.
             "LOCATION_DISABLED" to LocationDisabled,
-            "PROJECT_GEOFENCE_UNAVAILABLE" to ProjectGeofenceUnavailable
+            "PROJECT_GEOFENCE_UNAVAILABLE" to ProjectGeofenceUnavailable,
+            "APP_UPDATE_REQUIRED" to AppUpdateRequired
         )
     }
 }

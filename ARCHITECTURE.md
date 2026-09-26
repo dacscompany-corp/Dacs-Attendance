@@ -199,6 +199,7 @@ Key rules encoded there: `daysWorked` counts rows that **exist**; hours sum only
 | `0052_attendance_signin_throttle.sql` | `attendance_signin_attempts` + `attendance_signin_is_throttled()` / `attendance_signin_record()` — the brute-force throttle that replaces the captcha for the native app. Never stores passwords; rows expire after 24 h; **not** an audit log |
 | `0059_attendance_real_projects.sql` | Attendance stops keeping its own project list. Records repoint at `folders` (`pc`) and `construction_projects` (`pm`) via `timein_project_system` + `timein_folder_id` / `timein_pm_project_id` (and the `timeout_*` mirror). Adds `attendance_projects_for_worker()` and `attendance_project_name()`; **drops `attendance_projects`**. FKs are `on delete set null`, never cascade — deleting a project must never erase the fact that someone worked that day |
 | `0061_attendance_abandon.sql` | `attendance_abandon(uuid, text)` plus the who/when/why trail. Closes a forgotten Time Out **without inventing hours** — `timeout_at` and `total_minutes` stay NULL, so the day still reports `—` |
+| `0077_attendance_min_app_version.sql` | `attendance_config.min_app_version` + a BEFORE trigger on `attendance_records`: a worker's own write from a build below the minimum is refused with `APP_UPDATE_REQUIRED`. The app sends its `versionCode` as `x-dacs-app-version` (`SupabaseModule`). **Ships at 0 = off**; the app retries the refused row, so an update loses nothing. **Bump `versionCode` on every release** |
 
 ### 4.2 `attendance_records` — the shape that matters
 

@@ -182,6 +182,9 @@ private fun AttendanceFailure.copy(): Pair<String, String> = when (this) {
     AttendanceFailure.ProjectGeofenceUnavailable ->
         stringResource(R.string.att_geofence_missing) to
             stringResource(R.string.att_geofence_missing_tl)
+    AttendanceFailure.AppUpdateRequired ->
+        stringResource(R.string.att_app_update_required) to
+            stringResource(R.string.att_app_update_required_tl)
     AttendanceFailure.SessionExpired ->
         stringResource(R.string.att_session_expired) to
             stringResource(R.string.att_session_expired_tl)

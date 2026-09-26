@@ -3,7 +3,7 @@
 # wrapper cache, so no fresh distribution download is needed.
 #   AGP 8.10.x  <- officially supports compileSdk 36 AND runs on Gradle 8.11.1
 #                  (AGP 8.11+ would require Gradle 8.13)
-agp = "8.10.1"
+agp = "8.13.2"
 kotlin = "2.1.20"
 ksp = "2.1.20-2.0.1"           # must track `kotlin` exactly; Hilt runs through it
 coreKtx = "1.16.0"

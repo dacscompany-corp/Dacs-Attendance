@@ -22,12 +22,17 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.plugins.defaultRequest
+import io.ktor.client.request.header
 import io.ktor.serialization.kotlinx.json.json
 import javax.inject.Singleton
 import kotlinx.serialization.json.Json
 
 private const val TAG = "SupabaseModule"
 private const val SESSION_PREFS = "dacs_attendance_session"
+
+/** Read by 0077's attendance_app_version_guard. Lower-case: PostgREST lower-cases header names. */
+private const val APP_VERSION_HEADER = "x-dacs-app-version"
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -54,6 +59,21 @@ object SupabaseModule {
             alwaysAutoRefresh = true
         }
         install(Postgrest)
+
+        // ── WHICH BUILD IS TALKING. Sent on every request so the server
+        //    can refuse attendance from a build it no longer trusts (0077).
+        //
+        //    Found necessary on 2026-09-27: the Location-off fix shipped
+        //    in the app, not the server, so every phone still carrying
+        //    the old APK kept the loophole -- and the server had no way
+        //    to tell the two builds apart. The number is versionCode, not
+        //    versionName: an integer the SQL can compare without parsing.
+        httpConfig {
+            defaultRequest {
+                header(APP_VERSION_HEADER, BuildConfig.VERSION_CODE.toString())
+            }
+        }
+
         // Declared now, used in B3. It shares this client's ktor engine and
         // session, so adding it later would swap the HTTP stack underneath
         // an app that is already working.

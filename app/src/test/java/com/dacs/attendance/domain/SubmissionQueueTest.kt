@@ -123,6 +123,13 @@ class SubmissionQueueTest {
     }
 
     @Test
+    fun `an out-of-date build keeps its row, so the updated app can still send the day`() {
+        // 0077 refuses the BUILD, not the record. Room survives an APK
+        // update, and the new build resends the same shutter time.
+        assertEquals(QueueOutcome.Retry, outcomeFor(AttendanceFailure.AppUpdateRequired))
+    }
+
+    @Test
     fun `a refusal the worker must act on is surfaced, not silently dropped`() {
         // A deactivated account or an unassigned owner will never
         // succeed, and the worker needs to be told to call the office --

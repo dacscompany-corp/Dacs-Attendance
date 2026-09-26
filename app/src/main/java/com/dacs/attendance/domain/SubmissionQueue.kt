@@ -76,9 +76,15 @@ fun outcomeFor(failure: AttendanceFailure): QueueOutcome = when (failure) {
     // refused this way stays pending until somebody configures the
     // project. It is visible to the worker as pending rather than lost,
     // which is the right side to err on, but it is not self-healing.
+    //
+    // AppUpdateRequired: the refusal is about the BUILD, not the row. The
+    // queue survives an APK update (Room is kept), and the new build sends
+    // the same row with its original shutter time -- so keeping it is what
+    // saves the worker's day. Failing it would throw that day away.
     AttendanceFailure.NoConnection,
     AttendanceFailure.NotTimedIn,
     AttendanceFailure.ProjectGeofenceUnavailable,
+    AttendanceFailure.AppUpdateRequired,
     AttendanceFailure.SessionExpired,
     AttendanceFailure.Unexpected -> QueueOutcome.Retry
 

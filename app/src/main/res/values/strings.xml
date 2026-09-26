@@ -256,6 +256,8 @@
     <string name="att_location_off_tl">I-on ang Location sa telepono mo para makapagtala. Mag-swipe pababa, i-tap ang Location, tapos subukan ulit.</string>
     <string name="att_geofence_missing">This project has no location set yet. Tell your admin — it cannot be fixed from the app.</string>
     <string name="att_geofence_missing_tl">Wala pang nakatakdang lokasyon ang proyektong ito. Sabihan ang admin — hindi ito maaayos mula sa app.</string>
+    <string name="att_app_update_required">This app is out of date. Ask the office for the new version — your saved record will be sent after you update.</string>
+    <string name="att_app_update_required_tl">Luma na ang app na ito. Humingi sa opisina ng bagong bersyon — maipapadala ang naka-save mong record pagkatapos mag-update.</string>
 
 
     <!-- The action on a permanently denied location permission. Bilingual
