@@ -9,6 +9,7 @@ import com.dacs.attendance.domain.AttendanceRecord
 import com.dacs.attendance.domain.AttendanceStatus
 import com.dacs.attendance.domain.ProjectSystem
 import com.dacs.attendance.domain.TimeDirection
+import com.dacs.attendance.domain.TrustedClock
 import com.dacs.attendance.support.MainDispatcherRule
 import java.io.File
 import java.io.IOException
@@ -98,7 +99,11 @@ class TimeFlowViewModelTest {
         projectRepo: ProjectRepository = FakeProjects(Result.success(projects)),
         direction: TimeDirection = TimeDirection.IN,
         location: com.dacs.attendance.data.local.LocationSource = FakeLocation()
-    ) = TimeFlowViewModel(attendance, projectRepo, location).also { it.start(direction) }
+    ) = TimeFlowViewModel(attendance, projectRepo, location, trustedClock).also { it.start(direction) }
+
+    /** 0078's shutter clock. Fixed, so a test can see it carried through. */
+    private val trustedNow = Instant.parse("2026-09-28T23:45:00Z")
+    private val trustedClock = TrustedClock { trustedNow }
 
     private fun photoFile() = File.createTempFile("photo", ".jpg").apply { deleteOnExit() }
 
@@ -169,6 +174,9 @@ class TimeFlowViewModelTest {
         advanceUntilIdle()
 
         assertEquals(shutter, attendance.requests.single().capturedAt)
+        // 0078: and the tamper-proof reading taken at that same shutter,
+        // carried through untouched -- the reward is judged on it.
+        assertEquals(trustedNow, attendance.requests.single().trustedAt)
     }
 
     @Test

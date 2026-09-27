@@ -752,6 +752,15 @@ private fun RewardStrip(
                     fontSize = 12.sp,
                     color = TextMuted
                 )
+                // The one outcome a worker can PREVENT next time, so it
+                // says how rather than only that it happened.
+                if (it.unverifiedDays > 0) {
+                    Text(
+                        text = stringResource(R.string.home_reward_unverified),
+                        fontSize = 12.sp,
+                        color = Brown
+                    )
+                }
             }
         }
     }
@@ -774,6 +783,9 @@ private fun RewardCellView(cell: RewardCell, modifier: Modifier = Modifier) {
         RewardCellState.OnTime -> Triple(Green, BorderDefault, Surface)
         RewardCellState.Late -> Triple(Danger, DangerBorder, DangerTint)
         RewardCellState.Missing -> Triple(Danger, DangerBorder, DangerTint)
+        // Brown, not red: the worker WAS there (0078). It still costs the
+        // week, and the line under the strip says why and what to do.
+        RewardCellState.Unverified -> Triple(Brown, Brown, BrownTint)
         RewardCellState.Pending -> Triple(BorderDefault, BorderDefault, Surface)
         RewardCellState.NotRequired -> Triple(Vacant, Hairline, SurfaceRaised)
     }

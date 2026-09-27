@@ -39,6 +39,13 @@ enum class RewardDayStatus {
     OnTime, Late, Missing, NotRequired,
 
     /**
+     * A day WORKED that cannot earn the bonus (0078): the Time In's location
+     * was known bad, or no clock could vouch for its time. Not late and not
+     * missing -- the worker was there -- so it is told apart from both.
+     */
+    Unverified,
+
+    /**
      * Something the server has taught itself since this build shipped.
      * Kept rather than crashing, and deliberately NOT folded into
      * [Missing] -- see [rewardSummary].
@@ -51,6 +58,7 @@ enum class RewardDayStatus {
             "late" -> Late
             "missing" -> Missing
             "not_required" -> NotRequired
+            "unverified" -> Unverified
             else -> Unknown
         }
     }
@@ -70,6 +78,9 @@ data class RewardDay(
 enum class RewardCellState {
     OnTime, Late, Missing, NotRequired,
 
+    /** Worked, but could not be verified (0078). Disqualifying, not a miss. */
+    Unverified,
+
     /** Later this week. Nothing is wrong yet, and it must not look as if it is. */
     Pending
 }
@@ -87,6 +98,8 @@ data class RewardSummary(
     val onTimeDays: Int,
     val lateDays: Int,
     val missingDays: Int,
+    /** Days worked that could not be verified (0078). Disqualifying. */
+    val unverifiedDays: Int = 0,
     /** Required days still ahead of the worker. Never counted as missed. */
     val pendingDays: Int,
     /** Days with a Time In, whether on time or late. Reporting only. */
@@ -128,18 +141,22 @@ fun rewardSummary(days: List<RewardDay>, today: LocalDate): RewardSummary {
     var onTime = 0
     var late = 0
     var missing = 0
+    var unverified = 0
     var pending = 0
     var completed = 0
     var unknown = 0
 
     days.forEach { day ->
-        if (day.status == RewardDayStatus.OnTime || day.status == RewardDayStatus.Late) completed++
+        // An unverified day (0078) was still a day worked.
+        if (day.status == RewardDayStatus.OnTime || day.status == RewardDayStatus.Late ||
+            day.status == RewardDayStatus.Unverified) completed++
         if (!day.required) return@forEach
 
         required++
         when (day.status) {
             RewardDayStatus.OnTime -> onTime++
             RewardDayStatus.Late -> late++
+            RewardDayStatus.Unverified -> unverified++
             RewardDayStatus.Unknown -> unknown++
             // A required day the server calls not_required is a
             // contradiction; count it with the ones we cannot read
@@ -159,7 +176,7 @@ fun rewardSummary(days: List<RewardDay>, today: LocalDate): RewardSummary {
     }
 
     val status = when {
-        late > 0 || missing > 0 -> RewardStatus.Disqualified
+        late > 0 || missing > 0 || unverified > 0 -> RewardStatus.Disqualified
         unknown > 0 || pending > 0 -> RewardStatus.InProgress
         required > 0 -> RewardStatus.Qualified
         // Every day of the week was closed. There was nothing to be on
@@ -173,6 +190,7 @@ fun rewardSummary(days: List<RewardDay>, today: LocalDate): RewardSummary {
         onTimeDays = onTime,
         lateDays = late,
         missingDays = missing,
+        unverifiedDays = unverified,
         pendingDays = pending,
         completedDays = completed,
         status = status
@@ -200,6 +218,7 @@ fun rewardCells(
             day != null && !day.required -> RewardCellState.NotRequired
             day?.status == RewardDayStatus.OnTime -> RewardCellState.OnTime
             day?.status == RewardDayStatus.Late -> RewardCellState.Late
+            day?.status == RewardDayStatus.Unverified -> RewardCellState.Unverified
             // Same rule as the summary: today is still running, so an
             // empty cell for it is pending rather than a red miss.
             !date.isBefore(today) -> RewardCellState.Pending

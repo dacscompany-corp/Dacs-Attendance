@@ -151,6 +151,10 @@ class SupabaseAttendanceRepository @Inject constructor(
                     // build that omits them still resolves.
                     put("p_is_mock", request.isMock)
                     put("p_permission_denied", request.permissionDenied)
+                    // New in 0078, defaulted server-side like the two above.
+                    // Omitted rather than sent as null when the phone cannot
+                    // vouch -- the server's default says the same thing.
+                    request.trustedAt?.let { put("p_trusted_at", it.toString()) }
                 }
             ).decodeAs<AttendanceRecordRow>().toDomain()
         }

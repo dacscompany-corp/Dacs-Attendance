@@ -105,6 +105,7 @@ class OfflineAttendanceRepository @Inject constructor(
                     projectId = request.projectId,
                     projectName = projectName,
                     capturedAt = request.capturedAt.toEpochMilli(),
+                    trustedAt = request.trustedAt?.toEpochMilli(),
                     photoLocalPath = stored.absolutePath,
                     description = request.description,
                     latitude = request.latitude,

@@ -6,6 +6,7 @@ import android.util.Log
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.dacs.attendance.BuildConfig
+import com.dacs.attendance.data.local.ClockAnchorStore
 import com.russhwolf.settings.SharedPreferencesSettings
 import dagger.Module
 import dagger.Provides
@@ -23,7 +24,9 @@ import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
+import io.ktor.client.plugins.observer.ResponseObserver
 import io.ktor.client.request.header
+import io.ktor.http.HttpHeaders
 import io.ktor.serialization.kotlinx.json.json
 import javax.inject.Singleton
 import kotlinx.serialization.json.Json
@@ -41,7 +44,8 @@ object SupabaseModule {
     @Provides
     @Singleton
     fun provideSupabaseClient(
-        @ApplicationContext context: Context
+        @ApplicationContext context: Context,
+        clockAnchors: ClockAnchorStore
     ): SupabaseClient = createSupabaseClient(
         supabaseUrl = BuildConfig.SUPABASE_URL,
         supabaseKey = BuildConfig.SUPABASE_ANON_KEY
@@ -71,6 +75,14 @@ object SupabaseModule {
         httpConfig {
             defaultRequest {
                 header(APP_VERSION_HEADER, BuildConfig.VERSION_CODE.toString())
+            }
+            // ── THE SERVER'S CLOCK, written down on every answer (0078).
+            //    The anchor the trusted shutter time is measured from --
+            //    see TrustedTime.kt. Every response carries a Date header,
+            //    so any contact at all (the profile read at launch, a
+            //    history page) refreshes it.
+            ResponseObserver { response ->
+                clockAnchors.recordServerDate(response.headers[HttpHeaders.Date])
             }
         }
 

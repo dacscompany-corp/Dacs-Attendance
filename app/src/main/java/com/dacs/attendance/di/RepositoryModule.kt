@@ -1,6 +1,8 @@
 package com.dacs.attendance.di
 
+import com.dacs.attendance.data.local.ClockAnchorStore
 import com.dacs.attendance.data.local.LocationProvider
+import com.dacs.attendance.domain.TrustedClock
 import com.dacs.attendance.data.local.LocationSource
 import com.dacs.attendance.data.repo.ProjectRepository
 import com.dacs.attendance.data.repo.RewardRepository
@@ -43,6 +45,11 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindLocationSource(impl: LocationProvider): LocationSource
+
+    // 0078: the shutter's tamper-proof time. See TrustedTime.kt.
+    @Binds
+    @Singleton
+    abstract fun bindTrustedClock(impl: ClockAnchorStore): TrustedClock
 
     @Binds
     @Singleton

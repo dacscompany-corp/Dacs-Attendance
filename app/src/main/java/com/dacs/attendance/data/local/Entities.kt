@@ -39,6 +39,12 @@ data class PendingSubmissionEntity(
     val projectName: String,
     /** Epoch millis of the SHUTTER, not of the upload. */
     val capturedAt: Long,
+    /**
+     * The same shutter by the tamper-proof clock (0078), frozen here for the
+     * same reason [capturedAt] is: the upload may be days later. Null when
+     * the phone could not vouch for it -- never filled in at send time.
+     */
+    val trustedAt: Long? = null,
     val photoLocalPath: String,
     val description: String?,
     val latitude: Double?,

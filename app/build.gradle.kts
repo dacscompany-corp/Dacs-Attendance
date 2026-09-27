@@ -51,8 +51,10 @@ android {
         // attendance writes below attendance_config.min_app_version.
         // Bump it on EVERY release that goes to workers' phones -- a build
         // that reuses a number cannot be told apart from the one before.
-        versionCode = 2
-        versionName = "0.2.0"
+        // 3: sends the tamper-proof shutter time (0078). Needs 0078 applied
+        // on the server FIRST -- see that migration's header.
+        versionCode = 3
+        versionName = "0.3.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

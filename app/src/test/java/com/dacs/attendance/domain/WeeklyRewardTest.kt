@@ -43,6 +43,36 @@ class WeeklyRewardTest {
     }
 
     @Test
+    fun `an unverified day disqualifies, but is neither late nor missing`() {
+        // 0078: known-bad location, or a time no clock could vouch for.
+        // The worker was there, so it must not read as a miss or as late.
+        val summary = rewardSummary(
+            fullWeek(
+                RewardDayStatus.OnTime, RewardDayStatus.Unverified, RewardDayStatus.OnTime,
+                RewardDayStatus.OnTime, RewardDayStatus.OnTime
+            ),
+            today = LocalDate.of(2026, 9, 14)
+        )
+
+        assertEquals(RewardStatus.Disqualified, summary.status)
+        assertEquals(1, summary.unverifiedDays)
+        assertEquals(0, summary.lateDays)
+        assertEquals(0, summary.missingDays)
+        assertEquals(5, summary.completedDays)
+    }
+
+    @Test
+    fun `the server's unverified status is understood, not left as unknown`() {
+        // Were it Unknown, the week would show In Progress -- a promise the
+        // server has already broken.
+        assertEquals(RewardDayStatus.Unverified, RewardDayStatus.parse("unverified"))
+
+        val cells = rewardCells(monday, listOf(day(tuesday, RewardDayStatus.Unverified)),
+                                today = friday)
+        assertEquals(RewardCellState.Unverified, cells[1].state)
+    }
+
+    @Test
     fun `the reward week is five days, not the six the strip draws`() {
         val dates = rewardWeekDates(monday)
 

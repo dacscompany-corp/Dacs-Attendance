@@ -163,6 +163,7 @@ class SubmissionWorker @AssistedInject constructor(
                 projectSystem = system,
                 projectId = row.projectId,
                 capturedAt = Instant.ofEpochMilli(row.capturedAt),
+                trustedAt = row.trustedAt?.let(Instant::ofEpochMilli),
                 photo = photo,
                 description = row.description,
                 eventId = row.eventId,

@@ -30,6 +30,11 @@ data class SubmissionRequest(
     val projectSystem: ProjectSystem,
     val projectId: String,
     val capturedAt: Instant,
+    /**
+     * The shutter by the clock the worker cannot change (0078, TrustedTime.kt),
+     * or null when the phone cannot vouch for it. The reward is judged on this.
+     */
+    val trustedAt: Instant? = null,
     val photo: File,
     val description: String?,
     val eventId: String,

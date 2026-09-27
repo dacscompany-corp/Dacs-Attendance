@@ -28,7 +28,7 @@ object DatabaseModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AttendanceDatabase =
         Room.databaseBuilder(context, AttendanceDatabase::class.java, "attendance.db")
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
             .build()
 
     /**
@@ -191,6 +191,21 @@ object DatabaseModule {
             db.execSQL(
                 "ALTER TABLE cached_project ADD COLUMN geofenceEnabled INTEGER NOT NULL DEFAULT 1"
             )
+        }
+    }
+
+    /**
+     * v4 -> v5: queued rows carry the tamper-proof shutter time (0078).
+     *
+     * Rows already queued at upgrade time get NULL, deliberately. Their
+     * shutter fired under the old build, which never took the reading, and
+     * a value computed now would describe the upgrade, not the shutter.
+     * They still upload; the server judges them exactly as it judges an
+     * old build's row.
+     */
+    private val MIGRATION_4_5 = object : Migration(4, 5) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE pending_submission ADD COLUMN trustedAt INTEGER")
         }
     }
 }

@@ -69,6 +69,7 @@
     <string name="home_reward_in_progress">In progress</string>
     <string name="home_reward_unavailable">Needs signal to check</string>
     <string name="home_reward_of">%1$d of %2$d on time</string>
+    <string name="home_reward_unverified">A brown day could not be verified and does not count. Time In at the site, and open the app once with signal after restarting your phone.</string>
 
     <!-- Nav -->
     <string name="nav_home">Home</string>

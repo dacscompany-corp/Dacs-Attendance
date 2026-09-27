@@ -13,6 +13,7 @@ import com.dacs.attendance.domain.AttendanceFailure
 import com.dacs.attendance.domain.AttendanceProject
 import com.dacs.attendance.domain.AttendanceRecord
 import com.dacs.attendance.domain.TimeDirection
+import com.dacs.attendance.domain.TrustedClock
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.io.File
 import java.time.Instant
@@ -27,8 +28,12 @@ import kotlinx.coroutines.launch
 /** The four steps of the design, plus the confirmation that ends them. */
 enum class FlowStep { PickProject, TakePhoto, CheckPhoto, Describe, Confirmed }
 
-/** A photo on disk and the moment its shutter fired. */
-data class CapturedPhoto(val file: File, val capturedAt: Instant)
+/**
+ * A photo on disk and the moment its shutter fired -- twice: by the phone's
+ * clock, and by the clock the worker cannot change ([TrustedClock], 0078;
+ * null when it cannot vouch). Both are frozen here, at the shutter.
+ */
+data class CapturedPhoto(val file: File, val capturedAt: Instant, val trustedAt: Instant? = null)
 
 data class TimeFlowUiState(
     val direction: TimeDirection = TimeDirection.IN,
@@ -69,7 +74,8 @@ data class TimeFlowUiState(
 class TimeFlowViewModel @Inject constructor(
     private val attendance: AttendanceRepository,
     private val projects: ProjectRepository,
-    private val locationProvider: LocationSource
+    private val locationProvider: LocationSource,
+    private val trustedClock: TrustedClock
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(TimeFlowUiState())
@@ -130,7 +136,11 @@ class TimeFlowViewModel @Inject constructor(
     }
 
     fun onPhotoTaken(file: File, capturedAt: Instant) = _uiState.update {
-        it.copy(photo = CapturedPhoto(file, capturedAt), step = FlowStep.CheckPhoto, failure = null)
+        it.copy(
+            photo = CapturedPhoto(file, capturedAt, trustedAt = trustedClock.now()),
+            step = FlowStep.CheckPhoto,
+            failure = null
+        )
     }
 
     fun onRetakePhoto() = _uiState.update {
@@ -218,6 +228,7 @@ class TimeFlowViewModel @Inject constructor(
                     projectSystem = project.system,
                     projectId = project.id,
                     capturedAt = photo.capturedAt,
+                    trustedAt = photo.trustedAt,
                     photo = photo.file,
                     description = state.description.trim().takeIf { it.isNotEmpty() },
                     eventId = eventId,
