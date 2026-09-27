@@ -23,13 +23,10 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.plugins.defaultRequest
-import io.ktor.client.plugins.observer.ResponseObserver
-import io.ktor.client.request.header
-import io.ktor.http.HttpHeaders
 import io.ktor.serialization.kotlinx.json.json
 import javax.inject.Singleton
 import kotlinx.serialization.json.Json
+import okhttp3.Interceptor
 
 private const val TAG = "SupabaseModule"
 private const val SESSION_PREFS = "dacs_attendance_session"
@@ -72,18 +69,28 @@ object SupabaseModule {
         //    the old APK kept the loophole -- and the server had no way
         //    to tell the two builds apart. The number is versionCode, not
         //    versionName: an integer the SQL can compare without parsing.
-        httpConfig {
-            defaultRequest {
-                header(APP_VERSION_HEADER, BuildConfig.VERSION_CODE.toString())
-            }
-            // ── THE SERVER'S CLOCK, written down on every answer (0078).
-            //    The anchor the trusted shutter time is measured from --
-            //    see TrustedTime.kt. Every response carries a Date header,
-            //    so any contact at all (the profile read at launch, a
-            //    history page) refreshes it.
-            ResponseObserver { response ->
-                clockAnchors.recordServerDate(response.headers[HttpHeaders.Date])
-            }
+        //
+        // ── AND THE SERVER'S CLOCK, written down on every answer (0078).
+        //    The anchor the trusted shutter time is measured from -- see
+        //    TrustedTime.kt. Every response carries a Date header, so any
+        //    contact at all (the profile read at launch, a history page)
+        //    refreshes it.
+        //
+        // ── WHY AN OKHTTP INTERCEPTOR, not supabase-kt's `httpConfig`.
+        //    `httpConfig` is @SupabaseInternal ("can change at any time") and
+        //    fails the build without an opt-in. `httpEngine` is public, OkHttp
+        //    is already the engine underneath, and an interceptor sees the
+        //    response the moment its headers arrive -- the tightest anchor.
+        httpEngine = OkHttp.create {
+            addInterceptor(Interceptor { chain ->
+                val response = chain.proceed(
+                    chain.request().newBuilder()
+                        .header(APP_VERSION_HEADER, BuildConfig.VERSION_CODE.toString())
+                        .build()
+                )
+                clockAnchors.recordServerDate(response.header("Date"))
+                response
+            })
         }
 
         // Declared now, used in B3. It shares this client's ktor engine and
