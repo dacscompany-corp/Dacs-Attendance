@@ -1,6 +1,10 @@
 package com.dacs.attendance.di
 
+import com.dacs.attendance.data.local.ApkInstaller
 import com.dacs.attendance.data.local.ClockAnchorStore
+import com.dacs.attendance.data.local.InstallGateway
+import com.dacs.attendance.data.repo.AppUpdateRepository
+import com.dacs.attendance.data.repo.SupabaseAppUpdateRepository
 import com.dacs.attendance.data.local.LocationProvider
 import com.dacs.attendance.domain.TrustedClock
 import com.dacs.attendance.data.local.LocationSource
@@ -58,4 +62,13 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindWidgetRefresher(impl: GlanceWidgetRefresher): WidgetRefresher
+
+    // 0079: the required-update dialog. See AppUpdateViewModel.
+    @Binds
+    @Singleton
+    abstract fun bindAppUpdateRepository(impl: SupabaseAppUpdateRepository): AppUpdateRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindInstallGateway(impl: ApkInstaller): InstallGateway
 }

@@ -311,4 +311,22 @@
     <string name="widget_flow_in">project · photo · check · submit</string>
     <string name="widget_flow_out">photo · check · submit</string>
 
+
+    <!-- Required update (0079). Screen copy English; the two failures bilingual. -->
+    <string name="update_title">New Update is Available</string>
+    <string name="update_body">A new version is released, please update to get new features</string>
+    <string name="update_whats_new">WHAT\'S NEW</string>
+    <string name="update_version">Version %1$s</string>
+    <string name="update_action_now">UPDATE NOW!</string>
+    <string name="update_action_downloading">DOWNLOADING… %1$d%%</string>
+    <string name="update_action_install">INSTALL</string>
+    <string name="update_action_retry">TRY AGAIN</string>
+    <string name="update_action_allow">ALLOW INSTALLS</string>
+    <string name="update_permission_title">One more step</string>
+    <string name="update_permission_body">Allow DACS Attendance to install updates. Turn on the switch, then come back here.</string>
+    <string name="update_install_hint">Tap Install on the next screen.</string>
+    <string name="update_error_download">Download failed. Check your internet and try again.</string>
+    <string name="update_error_download_tl">Hindi natapos ang pag-download. Tingnan ang internet at subukan ulit.</string>
+    <string name="update_error_damaged">The update file was damaged. Try again.</string>
+    <string name="update_error_damaged_tl">Sira ang update file. Subukan ulit.</string>
 </resources>

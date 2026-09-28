@@ -15,6 +15,7 @@ import com.dacs.attendance.ui.EXTRA_START_FLOW
 import com.dacs.attendance.ui.RootViewModel
 import com.dacs.attendance.ui.startFlowFromExtra
 import com.dacs.attendance.ui.theme.AttendanceTheme
+import com.dacs.attendance.ui.update.UpdateGate
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -35,6 +36,8 @@ class MainActivity : ComponentActivity() {
                 Scaffold(modifier = Modifier.fillMaxSize()) { inner ->
                     AttendanceRoot(modifier = Modifier.padding(inner), viewModel = root)
                 }
+                // Above every screen, signed in or not: see UpdateGate.
+                UpdateGate()
             }
         }
     }

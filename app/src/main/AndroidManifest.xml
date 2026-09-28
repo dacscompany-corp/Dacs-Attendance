@@ -34,6 +34,13 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
+    <!-- The required-update dialog (0079) hands the downloaded APK to the
+         system installer. The app is sideloaded, not on Play, so this is
+         the only way a new version can reach the phone from inside it.
+         Android still asks the worker to allow it once ("Install unknown
+         apps"); this permission is what lets the app ask. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
     <uses-feature android:name="android.hardware.camera" android:required="true" />
 
     <application
@@ -77,6 +84,18 @@
         <!-- The app supplies WorkManager's Configuration itself (see
              AttendanceApp) so SubmissionWorker can be injected. The
              default initialiser has to be removed or it wins the race. -->
+        <!-- Hands the verified update APK to the installer. Exposes
+             cache/updates/ and nothing else; see update_file_paths. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/update_file_paths" />
+        </provider>
+
         <provider
             android:name="androidx.startup.InitializationProvider"
             android:authorities="${applicationId}.androidx-startup"

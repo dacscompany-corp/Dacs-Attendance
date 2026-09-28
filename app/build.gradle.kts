@@ -235,4 +235,7 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+    androidTestImplementation(libs.androidx.ui.test.junit4)
+    // The empty host activity createComposeRule() launches. Debug only.
+    debugImplementation(libs.androidx.ui.test.manifest)
 }

@@ -34,6 +34,10 @@ private const val SESSION_PREFS = "dacs_attendance_session"
 /** Read by 0077's attendance_app_version_guard. Lower-case: PostgREST lower-cases header names. */
 private const val APP_VERSION_HEADER = "x-dacs-app-version"
 
+/** 0077's refusal code, and how much of an error body to look through for it. */
+private const val APP_UPDATE_REQUIRED = "APP_UPDATE_REQUIRED"
+private const val PEEK_BYTES = 8_192L
+
 @Module
 @InstallIn(SingletonComponent::class)
 object SupabaseModule {
@@ -42,7 +46,8 @@ object SupabaseModule {
     @Singleton
     fun provideSupabaseClient(
         @ApplicationContext context: Context,
-        clockAnchors: ClockAnchorStore
+        clockAnchors: ClockAnchorStore,
+        updateNudges: UpdateNudges
     ): SupabaseClient = createSupabaseClient(
         supabaseUrl = BuildConfig.SUPABASE_URL,
         supabaseKey = BuildConfig.SUPABASE_ANON_KEY
@@ -89,6 +94,14 @@ object SupabaseModule {
                         .build()
                 )
                 clockAnchors.recordServerDate(response.header("Date"))
+                // A refusal for being out of date, from whichever screen or
+                // worker sent it, puts the update dialog up (0079). Only a
+                // 4xx is peeked, and peekBody leaves the body for the SDK.
+                if (response.code in 400..499 &&
+                    response.peekBody(PEEK_BYTES).string().contains(APP_UPDATE_REQUIRED)
+                ) {
+                    updateNudges.nudge()
+                }
                 response
             })
         }
